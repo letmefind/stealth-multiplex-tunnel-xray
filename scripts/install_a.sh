@@ -346,7 +346,7 @@ create_xray_config() {
     # Build configuration JSON
     local config_file="$XRAY_CONF_DIR/a.json"
     
-    # Start building the configuration
+    # Create the correct Server A configuration
     local config='{
         "log": {
             "access": "'$XRAY_LOG_DIR'/access.log",
@@ -354,7 +354,12 @@ create_xray_config() {
             "loglevel": "warning"
         },
         "inbounds": [],
-        "outbounds": [],
+        "outbounds": [
+            {
+                "protocol": "freedom",
+                "tag": "direct"
+            }
+        ],
         "routing": {
             "domainStrategy": "AsIs",
             "rules": []
@@ -378,7 +383,7 @@ create_xray_config() {
         }'
         
         config=$(echo "$config" | jq '.inbounds += ['"$inbound"']')
-        config=$(echo "$config" | jq '.routing.rules += [{"type": "field", "inboundTag": ["entry-'$port'"], "outboundTag": "to-b"}]')
+        config=$(echo "$config" | jq '.routing.rules += [{"type": "field", "inboundTag": ["entry-'$port'"], "outboundTag": "direct"}]')
     done
     
     # Add VLESS Reality inbound (the actual tunnel server)
@@ -458,190 +463,6 @@ create_xray_config() {
     fi
     
     config=$(echo "$config" | jq '.inbounds += ['"$reality_inbound"']')
-    
-    # Add outbound based on protocol and security
-    local outbound
-    if [[ "$PROTOCOL" == "vless" ]]; then
-        if [[ "$SECURITY" == "tls" ]]; then
-            outbound='{
-                "tag": "to-b",
-                "protocol": "vless",
-                "settings": {
-                    "vnext": [{
-                        "address": "'$B_DOMAIN'",
-                        "port": '$B_TLS_PORT',
-                        "users": [{
-                            "id": "'$UUID'",
-                            "encryption": "none"
-                        }]
-                    }]
-                },
-                "streamSettings": {
-                    "network": "splithttp",
-                    "security": "tls",
-                    "tlsSettings": {
-                        "serverName": "'$B_DOMAIN'",
-                        "rejectUnknownSni": '$REJECT_UNKNOWN_SNI_LOWERCASE',
-                        "allowInsecure": '$ALLOW_INSECURE_LOWERCASE',
-                        "fingerprint": "'$TLS_FINGERPRINT'",
-                        "sni": "'$B_DOMAIN'",
-                        "curvepreferences": "X25519",
-                        "alpn": ['$(echo "$ALPN_PROTOCOLS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')']
-                    },
-                    "splithttpSettings": {
-                        "transport": "splithttp",
-                        "acceptProxyProtocol": false,
-                        "host": "'$B_DOMAIN'",
-                        "custom_host": "'$B_DOMAIN'",
-                        "path": "'$STEALTH_PATH'",
-                        "noSSEHeader": false,
-                        "noGRPCHeader": true,
-                        "mode": "auto",
-                        "socketSettings": {
-                            "useSocket": false,
-                            "dialerProxy": "",
-                            "DomainStrategy": "asis",
-                            "tcpKeepAliveInterval": 0,
-                            "tcpUserTimeout": 0,
-                            "tcpMaxSeg": 0,
-                            "tcpWindowClamp": 0,
-                            "tcpKeepAliveIdle": 0,
-                            "tcpMptcp": false
-                        },
-                        "scMaxEachPostBytes": 1000000,
-                        "scMaxConcurrentPosts": 6,
-                        "scMinPostsIntervalMs": 25,
-                        "xPaddingBytes": 200,
-                        "keepaliveperiod": 60
-                    }
-                }
-            }'
-        else # reality
-            outbound='{
-                "tag": "to-b",
-                "protocol": "vless",
-                "settings": {
-                    "vnext": [{
-                        "address": "'$B_DOMAIN'",
-                        "port": '$B_TLS_PORT',
-                        "users": [{
-                            "id": "'$UUID'",
-                            "encryption": "none"
-                        }]
-                    }]
-                },
-                "streamSettings": {
-                    "network": "splithttp",
-                    "security": "reality",
-                    "realitySettings": {
-                        "show": false,
-                        "dest": "'$REALITY_DEST'",
-                        "privatekey": "'$REALITY_PRIVATE_KEY'",
-                        "minclientver": "",
-                        "maxclientver": "",
-                        "maxtimediff": 0,
-                        "proxyprotocol": 0,
-                        "shortids": ['$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
-                        "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
-                        "fingerprint": "safari",
-                        "spiderx": "",
-                        "publickey": "'$REALITY_PUBLIC_KEY'"
-                    },
-                    "splithttpSettings": {
-                        "transport": "splithttp",
-                        "acceptProxyProtocol": false,
-                        "host": "'$B_DOMAIN'",
-                        "custom_host": "'$B_DOMAIN'",
-                        "path": "'$STEALTH_PATH'",
-                        "noSSEHeader": false,
-                        "noGRPCHeader": true,
-                        "mode": "auto",
-                        "socketSettings": {
-                            "useSocket": false,
-                            "dialerProxy": "",
-                            "DomainStrategy": "asis",
-                            "tcpKeepAliveInterval": 0,
-                            "tcpUserTimeout": 0,
-                            "tcpMaxSeg": 0,
-                            "tcpWindowClamp": 0,
-                            "tcpKeepAliveIdle": 0,
-                            "tcpMptcp": false
-                        },
-                        "scMaxEachPostBytes": 1000000,
-                        "scMaxConcurrentPosts": 6,
-                        "scMinPostsIntervalMs": 25,
-                        "xPaddingBytes": 200,
-                        "keepaliveperiod": 60
-                    }
-                }
-            }'
-        fi
-    else # trojan
-        if [[ "$SECURITY" == "tls" ]]; then
-            outbound='{
-                "tag": "to-b",
-                "protocol": "trojan",
-                "settings": {
-                    "servers": [{
-                        "address": "'$B_DOMAIN'",
-                        "port": '$B_TLS_PORT',
-                        "password": "'$UUID'"
-                    }]
-                },
-                "streamSettings": {
-                    "network": "tcp",
-                    "security": "tls",
-                    "tlsSettings": {
-                        "serverName": "'$B_DOMAIN'",
-                        "rejectUnknownSni": '$REJECT_UNKNOWN_SNI_LOWERCASE',
-                        "allowInsecure": '$ALLOW_INSECURE_LOWERCASE',
-                        "fingerprint": "'$TLS_FINGERPRINT'",
-                        "sni": "'$B_DOMAIN'",
-                        "curvepreferences": "X25519",
-                        "alpn": ['$(echo "$ALPN_PROTOCOLS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')']
-                    }
-                }
-            }'
-        else # reality
-            outbound='{
-                "tag": "to-b",
-                "protocol": "trojan",
-                "settings": {
-                    "servers": [{
-                        "address": "'$B_DOMAIN'",
-                        "port": '$B_TLS_PORT',
-                        "password": "'$UUID'"
-                    }]
-                },
-                "streamSettings": {
-                    "network": "tcp",
-                    "security": "reality",
-                    "realitySettings": {
-                        "show": false,
-                        "dest": "'$REALITY_DEST'",
-                        "privatekey": "'$REALITY_PRIVATE_KEY'",
-                        "minclientver": "",
-                        "maxclientver": "",
-                        "maxtimediff": 0,
-                        "proxyprotocol": 0,
-                        "shortids": ['$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
-                        "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
-                        "fingerprint": "safari",
-                        "spiderx": "",
-                        "publickey": "'$REALITY_PUBLIC_KEY'"
-                    }
-                }
-            }'
-        fi
-    fi
-    
-    # Add direct outbound
-    local direct_outbound='{
-        "protocol": "freedom",
-        "tag": "direct"
-    }'
-    
-    config=$(echo "$config" | jq '.outbounds += ['"$outbound"', '"$direct_outbound"']')
     
     # Write configuration file
     echo "$config" | jq '.' > "$config_file"
