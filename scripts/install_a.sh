@@ -638,14 +638,39 @@ display_summary() {
     echo "  Configuration: $XRAY_CONF_DIR/a.json"
     echo "  Service: xray-a"
     echo
-    log_info "Next Steps:"
-    echo "1. Install Server B using: sudo bash scripts/install_b.sh"
-    echo "2. Use the same UUID and configuration values on Server B"
+    echo
+    log_info "📋 VALUES FOR SERVER B INSTALLATION:"
+    echo "=========================================="
+    echo "Copy these values when installing Server B:"
+    echo
+    echo "🔗 Server B Domain: $B_DOMAIN"
+    echo "🔌 Server B TLS Port: $B_TLS_PORT"
+    echo "🛡️  Stealth Path: $STEALTH_PATH"
+    echo "📡 Protocol: $PROTOCOL"
+    echo "🔐 Security: $SECURITY"
+    echo "🆔 UUID: $UUID"
+    echo
+    
     if [[ "$SECURITY" == "reality" ]]; then
-        echo "3. Share these Reality keys with Server B:"
-        echo "   Public Key: $REALITY_PUBLIC_KEY"
-        echo "   Short ID: $REALITY_SHORT_ID"
+        echo "🔑 Reality Configuration (copy these exactly):"
+        echo "   Reality Public Key: $REALITY_PUBLIC_KEY"
+        echo "   Reality Short IDs: $REALITY_SHORT_IDS"
+        echo "   Reality Destination: $REALITY_DEST"
+        echo "   SNI Domains: $SNI_DOMAINS"
+        echo
+    elif [[ "$SECURITY" == "tls" ]]; then
+        echo "🔒 TLS Configuration:"
+        echo "   TLS Fingerprint: $TLS_FINGERPRINT"
+        echo "   ALPN Protocols: $ALPN_PROTOCOLS"
+        echo "   Allow Insecure: $ALLOW_INSECURE"
+        echo "   Reject Unknown SNI: $REJECT_UNKNOWN_SNI"
+        echo
     fi
+    
+    echo "📝 Next Steps:"
+    echo "1. Install Server B: sudo bash scripts/install_b.sh"
+    echo "2. Use the exact values above when prompted"
+    echo "3. Ensure Server B has the same configuration"
     echo
     log_info "Testing Commands:"
     echo "  Check listening ports: ss -tlnp | grep -E ':(80|443|8080|8443)\\s'"

@@ -802,14 +802,38 @@ display_summary() {
     echo "  View logs: journalctl -u xray-b -e"
     echo "  View Nginx logs: tail -f /var/log/nginx/access.log"
     echo
-    log_info "Next Steps:"
-    echo "1. Install Server A using: sudo bash scripts/install_a.sh"
-    echo "2. Use the same UUID and configuration values on Server A"
+    log_info "📋 VALUES FOR SERVER A INSTALLATION:"
+    echo "=========================================="
+    echo "Copy these values when installing Server A:"
+    echo
+    echo "🔗 Server B Domain: $SERVER_NAME"
+    echo "🔌 Server B TLS Port: $B_TLS_PORT"
+    echo "🛡️  Stealth Path: $STEALTH_PATH"
+    echo "📡 Protocol: $PROTOCOL"
+    echo "🔐 Security: $SECURITY"
+    echo "🆔 UUID: $UUID"
+    echo
+    
     if [[ "$SECURITY" == "reality" ]]; then
-        echo "3. Use these Reality keys on Server A:"
-        echo "   Public Key: $REALITY_PUBLIC_KEY"
-        echo "   Short ID: $REALITY_SHORT_ID"
+        echo "🔑 Reality Configuration (copy these exactly):"
+        echo "   Reality Public Key: $REALITY_PUBLIC_KEY"
+        echo "   Reality Short IDs: $REALITY_SHORT_IDS"
+        echo "   Reality Destination: $REALITY_DEST"
+        echo "   SNI Domains: $SNI_DOMAINS"
+        echo
+    elif [[ "$SECURITY" == "tls" ]]; then
+        echo "🔒 TLS Configuration:"
+        echo "   TLS Fingerprint: $TLS_FINGERPRINT"
+        echo "   ALPN Protocols: $ALPN_PROTOCOLS"
+        echo "   Allow Insecure: $ALLOW_INSECURE"
+        echo "   Reject Unknown SNI: $REJECT_UNKNOWN_SNI"
+        echo
     fi
+    
+    echo "📝 Next Steps:"
+    echo "1. Install Server A: sudo bash scripts/install_a.sh"
+    echo "2. Use the exact values above when prompted"
+    echo "3. Ensure Server A has the same configuration"
     echo
 }
 
