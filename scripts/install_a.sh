@@ -526,7 +526,7 @@ create_xray_config() {
     
     # Write configuration file
     echo "$config" | jq '.' > "$config_file"
-    chmod 600 "$config_file"
+    chmod 644 "$config_file"
     
     log_success "Xray configuration created: $config_file"
 }
