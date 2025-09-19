@@ -197,7 +197,7 @@ confirm_selection() {
 
 # Check if installer script exists
 check_installer_script() {
-    local installer_script="$SCRIPT_DIR/install_${SERVER_TYPE,,}.sh"
+    local installer_script="$SCRIPT_DIR/scripts/install_${SERVER_TYPE,,}.sh"
     
     if [[ ! -f "$installer_script" ]]; then
         log_error "Installer script not found: $installer_script"
@@ -213,7 +213,7 @@ check_installer_script() {
 
 # Run the appropriate installer
 run_installer() {
-    local installer_script="$SCRIPT_DIR/install_${SERVER_TYPE,,}.sh"
+    local installer_script="$SCRIPT_DIR/scripts/install_${SERVER_TYPE,,}.sh"
     
     log_info "Starting Server $SERVER_TYPE installation..."
     echo
