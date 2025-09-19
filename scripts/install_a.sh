@@ -177,12 +177,24 @@ prompt_config() {
         read -p "Reality server names (comma-separated) [www.accounts.accesscontrol.windows.net]: " SNI_DOMAINS
         SNI_DOMAINS=${SNI_DOMAINS:-"www.accounts.accesscontrol.windows.net"}
         
-        # Generate Reality keys (using proper format)
+        # Generate Reality keys (using proper X25519 format)
+        # Generate proper X25519 key pair for Reality
+        # Create temporary files for key generation
+        temp_priv=$(mktemp)
+        temp_pub=$(mktemp)
+        
         # Generate X25519 private key (32 bytes)
-        REALITY_PRIVATE_KEY=$(openssl rand -base64 32 | tr -d '\n')
-        # For Reality, generate public key using a simple deterministic method
-        # This creates a valid public key from the private key
-        REALITY_PUBLIC_KEY=$(echo "$REALITY_PRIVATE_KEY" | base64 -d | openssl dgst -sha256 -binary | base64 | tr -d '\n')
+        openssl genpkey -algorithm X25519 -out "$temp_priv" 2>/dev/null
+        
+        # Extract private key in base64 format (raw 32 bytes)
+        REALITY_PRIVATE_KEY=$(openssl pkey -in "$temp_priv" -outform DER 2>/dev/null | tail -c +17 | head -c 32 | base64 | tr -d '\n')
+        
+        # Generate public key
+        REALITY_PUBLIC_KEY=$(openssl pkey -in "$temp_priv" -pubout -outform DER 2>/dev/null | tail -c +13 | base64 | tr -d '\n')
+        
+        # Clean up temporary files
+        rm -f "$temp_priv" "$temp_pub"
+        
         REALITY_SHORT_ID=$(openssl rand -hex 8)
         
         # Generate multiple short IDs
