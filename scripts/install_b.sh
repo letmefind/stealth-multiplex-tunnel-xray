@@ -328,7 +328,7 @@ prompt_config() {
     else
         echo "  SNI Domains: $SNI_DOMAINS"
         echo "  Reality Public Key: $REALITY_PUBLIC_KEY"
-        echo "  Reality Short ID: $REALITY_SHORT_ID"
+        echo "  Reality Short IDs: $REALITY_SHORT_IDS"
     fi
     echo
     
@@ -644,7 +644,7 @@ create_xray_config() {
                         "xver": 0,
                         "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
                         "privateKey": "'$REALITY_PUBLIC_KEY'",
-                        "shortIds": ["'$REALITY_SHORT_ID'"]
+                        "shortIds": ["'$REALITY_SHORT_IDS'"]
                     }
                 }
             }'
