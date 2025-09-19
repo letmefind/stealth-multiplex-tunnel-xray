@@ -363,6 +363,27 @@ configure_certificates() {
             
             log_success "Certificate obtained successfully"
         fi
+    else
+        # For Reality, we don't need real certificates, but Nginx still needs them for the decoy
+        # Generate self-signed certificates for the decoy website
+        log_info "Generating self-signed certificate for decoy website..."
+        
+        mkdir -p "/etc/ssl/private"
+        mkdir -p "/etc/ssl/certs"
+        
+        FULLCHAIN_PATH="/etc/ssl/certs/decoy.crt"
+        PRIVKEY_PATH="/etc/ssl/private/decoy.key"
+        
+        # Generate self-signed certificate
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "$PRIVKEY_PATH" \
+            -out "$FULLCHAIN_PATH" \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=$SERVER_NAME" 2>/dev/null
+        
+        chmod 600 "$PRIVKEY_PATH"
+        chmod 644 "$FULLCHAIN_PATH"
+        
+        log_success "Self-signed certificate generated for decoy"
     fi
 }
 
