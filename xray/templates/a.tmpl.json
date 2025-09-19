@@ -1,0 +1,125 @@
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "entry-80",
+      "listen": "0.0.0.0",
+      "port": 80,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1",
+        "port": 80,
+        "network": "tcp"
+      }
+    },
+    {
+      "tag": "entry-443",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1",
+        "port": 443,
+        "network": "tcp"
+      }
+    },
+    {
+      "tag": "entry-8080",
+      "listen": "0.0.0.0",
+      "port": 8080,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1",
+        "port": 8080,
+        "network": "tcp"
+      }
+    },
+    {
+      "tag": "entry-8443",
+      "listen": "0.0.0.0",
+      "port": 8443,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1",
+        "port": 8443,
+        "network": "tcp"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "to-b",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "cdn.example.com",
+            "port": 8081,
+            "users": [
+              {
+                "id": "12345678-1234-1234-1234-123456789abc",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "cdn.example.com",
+          "allowInsecure": false,
+          "fingerprint": "chrome",
+          "alpn": ["http/1.1"]
+        },
+        "splithttpSettings": {
+          "transport": "splithttp",
+          "host": "cdn.example.com",
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "xPaddingBytes": 200,
+          "noGRPCHeader": true,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["entry-80"],
+        "outboundTag": "to-b"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["entry-443"],
+        "outboundTag": "to-b"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["entry-8080"],
+        "outboundTag": "to-b"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["entry-8443"],
+        "outboundTag": "to-b"
+      }
+    ]
+  }
+}

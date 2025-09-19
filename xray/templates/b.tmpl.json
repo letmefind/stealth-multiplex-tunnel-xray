@@ -1,0 +1,59 @@
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "vless-in",
+      "listen": "127.0.0.1",
+      "port": 18081,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "12345678-1234-1234-1234-123456789abc",
+            "flow": ""
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "none",
+        "splithttpSettings": {
+          "transport": "splithttp",
+          "host": "cdn.example.com",
+          "path": "/assets",
+          "acceptProxyProtocol": false,
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "xPaddingBytes": 200,
+          "noGRPCHeader": true,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "portal-out",
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["vless-in"],
+        "outboundTag": "portal-out"
+      }
+    ]
+  }
+}

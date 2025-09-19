@@ -1,0 +1,28 @@
+[Unit]
+Description=Xray Service (Server A)
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+ExecStart=/usr/local/bin/xray run -config /etc/xray/a.json
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1048576
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/xray /etc/xray
+
+# Resource limits
+LimitCORE=infinity
+LimitNOFILE=1048576
+LimitNPROC=1048576
+
+[Install]
+WantedBy=multi-user.target
