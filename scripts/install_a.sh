@@ -177,23 +177,26 @@ prompt_config() {
         read -p "Reality server names (comma-separated) [www.accounts.accesscontrol.windows.net]: " SNI_DOMAINS
         SNI_DOMAINS=${SNI_DOMAINS:-"www.accounts.accesscontrol.windows.net"}
         
-        # Generate Reality keys (using proper X25519 format)
-        # Generate proper X25519 key pair for Reality
-        # Create temporary files for key generation
-        temp_priv=$(mktemp)
-        temp_pub=$(mktemp)
-        
-        # Generate X25519 private key (32 bytes)
-        openssl genpkey -algorithm X25519 -out "$temp_priv" 2>/dev/null
-        
-        # Extract private key in base64 format (raw 32 bytes)
-        REALITY_PRIVATE_KEY=$(openssl pkey -in "$temp_priv" -outform DER 2>/dev/null | tail -c +17 | head -c 32 | base64 | tr -d '\n')
-        
-        # Generate public key
-        REALITY_PUBLIC_KEY=$(openssl pkey -in "$temp_priv" -pubout -outform DER 2>/dev/null | tail -c +13 | base64 | tr -d '\n')
-        
-        # Clean up temporary files
-        rm -f "$temp_priv" "$temp_pub"
+        # Generate Reality keys (using proper curve25519 format)
+        # Use Go program to generate proper Reality keys
+        if command -v go >/dev/null 2>&1; then
+            # Compile and run the Go program
+            cd "$SCRIPT_DIR"
+            go mod init reality-keys 2>/dev/null || true
+            go get golang.org/x/crypto/curve25519 2>/dev/null || true
+            go run generate_reality_keys.go > /tmp/reality_keys.txt
+            REALITY_PRIVATE_KEY=$(grep "Private key:" /tmp/reality_keys.txt | cut -d' ' -f3)
+            REALITY_PUBLIC_KEY=$(grep "Public key:" /tmp/reality_keys.txt | cut -d' ' -f3)
+            rm -f /tmp/reality_keys.txt
+        else
+            # Fallback: use openssl with proper format
+            log_warning "Go not found, using fallback key generation"
+            temp_priv=$(mktemp)
+            openssl genpkey -algorithm X25519 -out "$temp_priv" 2>/dev/null
+            REALITY_PRIVATE_KEY=$(openssl pkey -in "$temp_priv" -outform DER 2>/dev/null | tail -c +17 | head -c 32 | base64 | tr -d '=' | tr '+/' '-_')
+            REALITY_PUBLIC_KEY=$(openssl pkey -in "$temp_priv" -pubout -outform DER 2>/dev/null | tail -c +13 | base64 | tr -d '=' | tr '+/' '-_')
+            rm -f "$temp_priv"
+        fi
         
         REALITY_SHORT_ID=$(openssl rand -hex 8)
         
