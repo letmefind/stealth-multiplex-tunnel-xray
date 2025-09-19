@@ -22,7 +22,7 @@ SYSTEMD_DIR="/etc/systemd/system"
 # Default values
 DEFAULT_B_TLS_PORT="8081"
 DEFAULT_STEALTH_PATH="/assets"
-DEFAULT_PORT_LIST="8080,8443,9080,9443"
+DEFAULT_PORT_LIST="80,443,8080,8443"
 DEFAULT_PROTOCOL="vless"
 DEFAULT_SECURITY="tls"
 
@@ -234,23 +234,25 @@ prompt_config() {
     # Port list
     echo
     log_warning "IMPORTANT: Port Usage Guidelines"
-    echo "  • Port 80: HTTP traffic (avoid if using TLS certificates)"
-    echo "  • Port 443: HTTPS traffic (avoid if using TLS certificates)" 
-    echo "  • Port 8080, 8443: Recommended for tunnel traffic"
-    echo "  • Use alternative ports (8080, 8443, 9080, 9443) to avoid conflicts"
+    echo "  • Port 80: HTTP traffic (may conflict with TLS certificate renewal)"
+    echo "  • Port 443: HTTPS traffic (may conflict with web servers)" 
+    echo "  • Port 8080, 8443: Alternative tunnel ports"
+    echo "  • All ports will be configured automatically"
+    echo "  • You can remove ports 80/443 if you have conflicts"
     echo
     read -p "Client ports (comma-separated) [$DEFAULT_PORT_LIST]: " PORT_LIST
     PORT_LIST=${PORT_LIST:-$DEFAULT_PORT_LIST}
     
     # Check for port 80/443 conflicts
     if echo "$PORT_LIST" | grep -q -E "\b(80|443)\b"; then
-        log_warning "You're using ports 80/443 for tunnel traffic"
-        log_warning "This may conflict with:"
-        log_warning "  • TLS certificate renewal (Let's Encrypt)"
-        log_warning "  • Web servers (Apache/Nginx)"
-        log_warning "  • Other services"
+        log_info "Using ports 80/443 for tunnel traffic"
+        log_info "Potential conflicts:"
+        log_info "  • TLS certificate renewal (Let's Encrypt)"
+        log_info "  • Web servers (Apache/Nginx)"
+        log_info "  • Other services"
         echo
-        read -p "Continue anyway? [y/N]: " CONFIRM_PORTS
+        read -p "Continue with these ports? [Y/n]: " CONFIRM_PORTS
+        CONFIRM_PORTS=${CONFIRM_PORTS:-"y"}
         if [[ ! "$CONFIRM_PORTS" =~ ^[Yy]$ ]]; then
             log_info "Please use alternative ports like: 8080,8443,9080,9443"
             exit 1
@@ -692,6 +694,7 @@ display_summary() {
     echo "📡 Protocol: $PROTOCOL"
     echo "🔐 Security: $SECURITY"
     echo "🆔 UUID: $UUID"
+    echo "🌐 Client Ports: $PORT_LIST (all configured automatically)"
     echo
     
     if [[ "$SECURITY" == "reality" ]]; then
