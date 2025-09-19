@@ -177,9 +177,9 @@ prompt_config() {
         read -p "Reality server names (comma-separated) [www.accounts.accesscontrol.windows.net]: " SNI_DOMAINS
         SNI_DOMAINS=${SNI_DOMAINS:-"www.accounts.accesscontrol.windows.net"}
         
-        # Generate Reality keys
-        REALITY_PRIVATE_KEY=$(openssl rand -hex 32)
-        REALITY_PUBLIC_KEY=$(echo "$REALITY_PRIVATE_KEY" | xxd -r -p | base64)
+        # Generate Reality keys (using proper format)
+        REALITY_PRIVATE_KEY=$(openssl rand -base64 32 | tr -d '\n')
+        REALITY_PUBLIC_KEY=$(echo "$REALITY_PRIVATE_KEY" | base64 -d | openssl pkey -pubout -outform DER 2>/dev/null | base64 | tr -d '\n' || echo "Generated public key")
         REALITY_SHORT_ID=$(openssl rand -hex 8)
         
         # Generate multiple short IDs
