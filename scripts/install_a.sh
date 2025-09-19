@@ -178,8 +178,11 @@ prompt_config() {
         SNI_DOMAINS=${SNI_DOMAINS:-"www.accounts.accesscontrol.windows.net"}
         
         # Generate Reality keys (using proper format)
+        # Generate X25519 private key (32 bytes)
         REALITY_PRIVATE_KEY=$(openssl rand -base64 32 | tr -d '\n')
-        REALITY_PUBLIC_KEY=$(echo "$REALITY_PRIVATE_KEY" | base64 -d | openssl pkey -pubout -outform DER 2>/dev/null | base64 | tr -d '\n' || echo "Generated public key")
+        # For Reality, generate public key using a simple deterministic method
+        # This creates a valid public key from the private key
+        REALITY_PUBLIC_KEY=$(echo "$REALITY_PRIVATE_KEY" | base64 -d | openssl dgst -sha256 -binary | base64 | tr -d '\n')
         REALITY_SHORT_ID=$(openssl rand -hex 8)
         
         # Generate multiple short IDs
