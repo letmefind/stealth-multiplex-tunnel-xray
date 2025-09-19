@@ -22,7 +22,7 @@ SYSTEMD_DIR="/etc/systemd/system"
 # Default values
 DEFAULT_B_TLS_PORT="8081"
 DEFAULT_STEALTH_PATH="/assets"
-DEFAULT_PORT_LIST="80,443,8080,8443"
+DEFAULT_PORT_LIST="8080,8443,9080,9443"
 DEFAULT_PROTOCOL="vless"
 DEFAULT_SECURITY="tls"
 
@@ -232,8 +232,47 @@ prompt_config() {
     fi
     
     # Port list
+    echo
+    log_warning "IMPORTANT: Port Usage Guidelines"
+    echo "  • Port 80: HTTP traffic (avoid if using TLS certificates)"
+    echo "  • Port 443: HTTPS traffic (avoid if using TLS certificates)" 
+    echo "  • Port 8080, 8443: Recommended for tunnel traffic"
+    echo "  • Use alternative ports (8080, 8443, 9080, 9443) to avoid conflicts"
+    echo
     read -p "Client ports (comma-separated) [$DEFAULT_PORT_LIST]: " PORT_LIST
     PORT_LIST=${PORT_LIST:-$DEFAULT_PORT_LIST}
+    
+    # Check for port 80/443 conflicts
+    if echo "$PORT_LIST" | grep -q -E "\b(80|443)\b"; then
+        log_warning "You're using ports 80/443 for tunnel traffic"
+        log_warning "This may conflict with:"
+        log_warning "  • TLS certificate renewal (Let's Encrypt)"
+        log_warning "  • Web servers (Apache/Nginx)"
+        log_warning "  • Other services"
+        echo
+        read -p "Continue anyway? [y/N]: " CONFIRM_PORTS
+        if [[ ! "$CONFIRM_PORTS" =~ ^[Yy]$ ]]; then
+            log_info "Please use alternative ports like: 8080,8443,9080,9443"
+            exit 1
+        fi
+    fi
+    
+    # Check for TLS certificate port conflicts
+    if [[ "$SECURITY" == "tls" ]]; then
+        log_info "TLS Certificate Port Management:"
+        echo "  • Let's Encrypt needs port 80 for HTTP-01 challenge"
+        echo "  • If you use port 80 for tunnel, certificate renewal may fail"
+        echo "  • Consider using alternative ports: 8080, 8443, 9080, 9443"
+        echo
+        read -p "Do you want to configure certificate renewal ports? [Y/n]: " CONFIGURE_CERT_PORTS
+        CONFIGURE_CERT_PORTS=${CONFIGURE_CERT_PORTS:-"y"}
+        
+        if [[ "$CONFIGURE_CERT_PORTS" =~ ^[Yy]$ ]]; then
+            log_info "Certificate renewal will use port 80 temporarily"
+            log_info "Make sure port 80 is available during renewal"
+            log_info "You can stop the tunnel service during renewal if needed"
+        fi
+    fi
     
     # UUID
     read -p "UUID (press Enter to auto-generate): " UUID
