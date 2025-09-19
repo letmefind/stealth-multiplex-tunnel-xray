@@ -228,6 +228,12 @@ prompt_config() {
     read -p "Enable TCP BBR optimization? [y/N]: " ENABLE_BBR
     ENABLE_BBR=${ENABLE_BBR:-"n"}
     
+    # Initialize TLS variables if not set (for Reality mode)
+    ALLOW_INSECURE=${ALLOW_INSECURE:-"n"}
+    REJECT_UNKNOWN_SNI=${REJECT_UNKNOWN_SNI:-"n"}
+    TLS_FINGERPRINT=${TLS_FINGERPRINT:-"chrome"}
+    ALPN_PROTOCOLS=${ALPN_PROTOCOLS:-"h2,http/1.1"}
+    
     # Convert boolean values to lowercase
     if [[ "$ALLOW_INSECURE" == "y" || "$ALLOW_INSECURE" == "Y" ]]; then
         ALLOW_INSECURE_LOWERCASE="true"
