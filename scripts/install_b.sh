@@ -26,6 +26,7 @@ DEFAULT_B_TLS_PORT="8081"
 DEFAULT_STEALTH_PATH="/assets"
 DEFAULT_PROTOCOL="vless"
 DEFAULT_SECURITY="tls"
+DEFAULT_CERT_MODE="certbot"
 
 # Logging functions
 log_info() {
@@ -116,6 +117,9 @@ install_certbot() {
 # Prompt for configuration
 prompt_config() {
     log_info "Please provide the following configuration:"
+    
+    # Initialize default values
+    CERT_MODE="$DEFAULT_CERT_MODE"
     
     # Server name (must match Server A's B_DOMAIN)
     while true; do
