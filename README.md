@@ -1,298 +1,236 @@
-# Stealth Multiplex Tunnel Xray
+# Stealth Multiplex Tunnel Xray / تونل استیل چندگانه Xray
+
+[![English](https://img.shields.io/badge/Language-English-blue.svg)](README.md)
+[![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](#فارسی)
+
+---
+
+## English
 
 A production-ready, stealth tunnel solution supporting multiple protocols (VLESS/Trojan) and security options (TLS/Reality) with multi-port support and interactive configuration.
 
-## Architecture Overview
+### 🚀 Features
 
-This solution creates a stealth tunnel between two servers:
+- **Multi-Protocol Support**: VLESS and Trojan protocols
+- **Multi-Security Options**: TLS and Reality security
+- **Multi-Port Support**: Dynamic port management
+- **Interactive Installation**: User-friendly setup process
+- **Production Ready**: Comprehensive monitoring and management tools
+- **Stealth Features**: Decoy sites, hidden tunnels, Chrome fingerprinting
+- **Enhanced Reality**: Multiple short IDs, custom destinations
+- **XHTTP Support**: Complete XHTTP configuration with socket settings
 
-- **Server A (Entry)**: Accepts connections on multiple ports and forwards them through a stealth tunnel
-- **Server B (Receiver)**: Receives tunneled traffic behind Nginx with TLS termination and decoy site
-
-### Supported Protocols & Security
-
-- **Protocols**: VLESS, Trojan
-- **Security**: TLS, Reality
-- **Transport**: SplitHTTP (for VLESS), TCP (for Trojan)
-
-## Quick Start
-
-### Unified Installation (Recommended)
+### 📋 Quick Start
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
 
 # Run the unified installer
 sudo bash install.sh
 ```
 
-The unified installer will:
-- Ask which server you're installing (A or B)
-- Provide detailed information about each server type
-- Run the appropriate installation script
-- Show post-installation guidance
+### 🏗️ Architecture
 
-### Direct Installation
+- **Server A (Entry)**: Accepts connections on multiple ports and forwards them through a stealth tunnel
+- **Server B (Receiver)**: Receives tunneled traffic behind Nginx with TLS termination and decoy site
 
-If you prefer to run installers directly:
-
-### 1. Install Server B (Receiver)
-
-```bash
-# Run the interactive installer
-sudo bash scripts/install_b.sh
-```
-
-The installer will prompt you for:
-- Server domain name
-- TLS port (default: 8081)
-- Stealth path (default: /assets)
-- Protocol choice (VLESS or Trojan)
-- Security choice (TLS or Reality)
-- Certificate mode (use existing or Certbot)
-- UUID (auto-generated if not provided)
-- Proxy protocol support
-- TCP BBR optimization
-- Decoy site creation
-
-### 2. Install Server A (Entry)
-
-```bash
-# Run the interactive installer
-sudo bash scripts/install_a.sh
-```
-
-The installer will prompt you for:
-- Server B domain (must match Server B configuration)
-- Server B TLS port
-- Stealth path (must match Server B)
-- Protocol choice (must match Server B)
-- Security choice (must match Server B)
-- Allowed client ports (comma-separated, e.g., 80,443,8080,8443)
-- UUID (must match Server B)
-- TCP BBR optimization
-
-### 3. Manage Ports (Optional)
-
-Add or remove ports on Server A after installation:
-
-```bash
-# Add a new port
-sudo bash scripts/manage_ports.sh add 8443
-
-# Remove a port
-sudo bash scripts/manage_ports.sh remove 8080
-
-# List current ports
-sudo bash scripts/manage_ports.sh list
-```
-
-## Configuration Details
-
-### Protocol & Security Combinations
-
-#### VLESS + TLS
-- Uses SplitHTTP transport for better stealth
-- Chrome TLS fingerprint
-- HTTP/1.1 ALPN
-- Valid TLS certificate required
-
-#### VLESS + Reality
-- Uses SplitHTTP transport
-- Reality protocol for enhanced stealth
-- No real certificate needed (uses SNI)
-- Better resistance to deep packet inspection
-
-#### Trojan + TLS
-- Uses TCP transport
-- Standard TLS encryption
-- Valid TLS certificate required
-- Simpler configuration
-
-#### Trojan + Reality
-- Uses TCP transport
-- Reality protocol for enhanced stealth
-- No real certificate needed
-- Good balance of simplicity and stealth
-
-### Port Configuration
-
-Server A can listen on multiple ports simultaneously. Each port creates a separate dokodemo-door inbound that preserves the original port number when forwarding to Server B.
-
-Example: If a client connects to Server A on port 8080, the traffic will be forwarded to Server B and delivered to `127.0.0.1:8080` on Server B.
-
-### Stealth Features
-
-- **Decoy Site**: Nginx serves a legitimate-looking website on the root path
-- **Hidden Tunnel**: Actual tunnel traffic is hidden behind a static-like path (default: /assets)
-- **TLS Fingerprinting**: Chrome-like TLS fingerprint to avoid detection
-- **Reality Support**: Enhanced stealth with Reality protocol
-- **Proxy Protocol**: Optional client IP preservation
-
-## File Structure
+### 📁 Project Structure
 
 ```
 stealth-multiplex-tunnel-xray/
-├── README.md
-├── .env.example
+├── install.sh                    # Unified installer
+├── README.md                     # Comprehensive documentation
+├── .env.example                  # Configuration template
+├── .gitignore                    # Git ignore rules
+├── CONFIGURATION_EXAMPLES.md     # Configuration examples
+├── PROJECT_SUMMARY.md            # Detailed project summary
 ├── scripts/
-│   ├── install_a.sh          # Server A installer
-│   ├── install_b.sh          # Server B installer
-│   └── manage_ports.sh       # Port management
+│   ├── install_a.sh            # Server A installer
+│   ├── install_b.sh            # Server B installer
+│   ├── manage_ports.sh         # Port management utility
+│   ├── backup_config.sh        # Configuration backup utility
+│   └── status.sh               # Status monitoring utility
 ├── systemd/
-│   ├── xray-a.service        # Server A systemd service
-│   └── xray-b.service        # Server B systemd service
+│   ├── xray-a.service          # Server A systemd service
+│   └── xray-b.service          # Server B systemd service
 ├── nginx/
-│   └── stealth-8081.conf     # Nginx configuration template
+│   └── stealth-8081.conf       # Nginx configuration template
 └── xray/
     └── templates/
-        ├── a.tmpl.json       # Server A Xray template
-        └── b.tmpl.json       # Server B Xray template
+        ├── a.tmpl.json         # Server A Xray template
+        └── b.tmpl.json         # Server B Xray template
 ```
 
-## Testing & Verification
+### 🔧 Installation Process
 
-### Server B Health Checks
+1. **Install Server B (Receiver)** - Generates UUID and Reality keys
+2. **Install Server A (Entry)** - Uses same configuration
+3. **Test connectivity** - Verify end-to-end functionality
+
+### 🛡️ Security Features
+
+- Chrome TLS fingerprinting
+- Reality protocol support
+- Decoy website serving
+- Hidden tunnel paths
+- Certificate management
+- Firewall integration
+- UUID security
+
+### 📊 Management Tools
+
+- **Port Management**: Add/remove ports dynamically
+- **Configuration Backup**: Automated backup/restore
+- **Status Monitoring**: Comprehensive health checks
+- **Log Analysis**: Structured logging and error tracking
+
+### 📖 Documentation
+
+- [README.md](README.md) - Complete installation guide
+- [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - Configuration examples
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Project overview
+
+### ⚠️ Disclaimer
+
+This project is provided for educational and legitimate use cases only. Users are responsible for compliance with local laws and regulations.
+
+### 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+### 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### 📞 Support
+
+For issues and questions, please open an issue on GitHub.
+
+---
+
+## فارسی
+
+یک راه‌حل تونل استیل آماده تولید که از پروتکل‌های متعدد (VLESS/Trojan) و گزینه‌های امنیتی (TLS/Reality) با پشتیبانی چندپورت و پیکربندی تعاملی پشتیبانی می‌کند.
+
+### 🚀 ویژگی‌ها
+
+- **پشتیبانی چندپروتکل**: پروتکل‌های VLESS و Trojan
+- **گزینه‌های امنیتی متعدد**: امنیت TLS و Reality
+- **پشتیبانی چندپورت**: مدیریت پویای پورت‌ها
+- **نصب تعاملی**: فرآیند راه‌اندازی کاربرپسند
+- **آماده تولید**: ابزارهای نظارت و مدیریت جامع
+- **ویژگی‌های استیل**: سایت‌های فریب، تونل‌های مخفی، اثر انگشت Chrome
+- **Reality پیشرفته**: شناسه‌های کوتاه متعدد، مقاصد سفارشی
+- **پشتیبانی XHTTP**: پیکربندی کامل XHTTP با تنظیمات سوکت
+
+### 📋 شروع سریع
 
 ```bash
-# Check if decoy site is accessible
-curl -I https://your-domain.com:8081/
+# کلون کردن مخزن
+git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
+cd stealth-multiplex-tunnel-xray
 
-# Check if tunnel path responds (should not expose obvious tunnel)
-curl -I https://your-domain.com:8081/assets
-
-# Check Xray service status
-systemctl status xray-b
-
-# Check logs
-journalctl -u xray-b -e
+# اجرای نصب‌کننده یکپارچه
+sudo bash install.sh
 ```
 
-### Server A Health Checks
+### 🏗️ معماری
 
-```bash
-# Check if ports are listening
-ss -tlnp | grep -E ':(80|443|8080|8443)\s'
+- **سرور A (ورودی)**: اتصالات را روی پورت‌های متعدد می‌پذیرد و آن‌ها را از طریق تونل استیل ارسال می‌کند
+- **سرور B (گیرنده)**: ترافیک تونل شده را پشت Nginx با خاتمه TLS و سایت فریب دریافت می‌کند
 
-# Check Xray service status
-systemctl status xray-a
+### 📁 ساختار پروژه
 
-# Check logs
-journalctl -u xray-a -e
+```
+stealth-multiplex-tunnel-xray/
+├── install.sh                    # نصب‌کننده یکپارچه
+├── README.md                     # مستندات جامع
+├── .env.example                  # الگوی پیکربندی
+├── .gitignore                    # قوانین نادیده‌گیری Git
+├── CONFIGURATION_EXAMPLES.md     # نمونه‌های پیکربندی
+├── PROJECT_SUMMARY.md            # خلاصه تفصیلی پروژه
+├── scripts/
+│   ├── install_a.sh            # نصب‌کننده سرور A
+│   ├── install_b.sh            # نصب‌کننده سرور B
+│   ├── manage_ports.sh         # ابزار مدیریت پورت
+│   ├── backup_config.sh        # ابزار پشتیبان‌گیری پیکربندی
+│   └── status.sh               # ابزار نظارت وضعیت
+├── systemd/
+│   ├── xray-a.service          # سرویس systemd سرور A
+│   └── xray-b.service          # سرویس systemd سرور B
+├── nginx/
+│   └── stealth-8081.conf       # الگوی پیکربندی Nginx
+└── xray/
+    └── templates/
+        ├── a.tmpl.json         # الگوی Xray سرور A
+        └── b.tmpl.json         # الگوی Xray سرور B
 ```
 
-### End-to-End Test
+### 🔧 فرآیند نصب
 
-1. Start a test service on Server B:
-   ```bash
-   # On Server B
-   sudo nc -l 127.0.0.1 8080
-   ```
+1. **نصب سرور B (گیرنده)** - تولید UUID و کلیدهای Reality
+2. **نصب سرور A (ورودی)** - استفاده از همان پیکربندی
+3. **تست اتصال** - تأیید عملکرد end-to-end
 
-2. Connect from a client to Server A:
-   ```bash
-   # From client
-   nc server-a-ip 8080
-   ```
+### 🛡️ ویژگی‌های امنیتی
 
-3. Type messages in the client - they should appear on Server B's nc session.
+- اثر انگشت TLS Chrome
+- پشتیبانی پروتکل Reality
+- ارائه سایت فریب
+- مسیرهای تونل مخفی
+- مدیریت گواهی
+- یکپارچگی فایروال
+- امنیت UUID
 
-## Security Considerations
+### 📊 ابزارهای مدیریت
 
-### Certificate Management
+- **مدیریت پورت**: افزودن/حذف پورت‌ها به صورت پویا
+- **پشتیبان‌گیری پیکربندی**: پشتیبان‌گیری/بازیابی خودکار
+- **نظارت وضعیت**: بررسی‌های سلامت جامع
+- **تحلیل لاگ**: ثبت‌سازی ساختاریافته و ردیابی خطا
 
-- **TLS Mode**: Requires valid SSL certificate for the domain
-- **Reality Mode**: Uses SNI-based certificate generation, no real cert needed
-- **Certbot Integration**: Automatic certificate renewal support
+### 📖 مستندات
 
-### Firewall Configuration
+- [README.md](README.md) - راهنمای نصب کامل
+- [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - نمونه‌های پیکربندی
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - نمای کلی پروژه
 
-The installers will attempt to configure UFW firewall rules. For other firewalls, manual configuration may be required:
+### ⚠️ سلب مسئولیت
 
-```bash
-# Example iptables rules for Server A
-iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
-iptables -A INPUT -p tcp --dport 8443 -j ACCEPT
+این پروژه فقط برای موارد استفاده آموزشی و مشروع ارائه شده است. کاربران مسئول رعایت قوانین محلی هستند.
 
-# Example iptables rules for Server B
-iptables -A INPUT -p tcp --dport 8081 -j ACCEPT
-```
+### 📄 مجوز
 
-### UUID Security
+این پروژه تحت مجوز MIT مجوز دارد - برای جزئیات فایل LICENSE را ببینید.
 
-- Generate strong, unique UUIDs for each installation
-- Rotate UUIDs periodically for enhanced security
-- Never share UUIDs in logs or documentation
+### 🤝 مشارکت
 
-## Troubleshooting
+مشارکت‌ها خوشامد است! لطفاً Pull Request ارسال کنید.
 
-### Common Issues
+### 📞 پشتیبانی
 
-1. **Certificate Errors**: Ensure domain DNS points to Server B and certificate is valid
-2. **Port Conflicts**: Check if ports are already in use with `ss -tlnp`
-3. **Firewall Issues**: Verify firewall rules allow traffic on required ports
-4. **UUID Mismatch**: Ensure Server A and B use the same UUID
+برای مسائل و سوالات، لطفاً یک issue در GitHub باز کنید.
 
-### Log Analysis
+---
 
-```bash
-# Xray logs
-journalctl -u xray-a -f
-journalctl -u xray-b -f
+## 🌍 Language Selection / انتخاب زبان
 
-# Nginx logs
-tail -f /var/log/nginx/access.log
-tail -f /var/log/nginx/error.log
+- [English](#english) - Complete English documentation
+- [فارسی](#فارسی) - مستندات کامل فارسی
 
-# System logs
-dmesg | grep -i xray
-```
+## 📊 Project Stats / آمار پروژه
 
-### Performance Optimization
+![GitHub stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)
+![GitHub forks](https://img.shields.io/github/forks/letmefind/stealth-multiplex-tunnel-xray?style=social)
+![GitHub issues](https://img.shields.io/github/issues/letmefind/stealth-multiplex-tunnel-xray)
+![GitHub license](https://img.shields.io/github/license/letmefind/stealth-multiplex-tunnel-xray)
 
-- Enable TCP BBR for better performance
-- Adjust Xray buffer sizes for high-traffic scenarios
-- Monitor system resources and adjust limits as needed
+## 🔗 Quick Links / لینک‌های سریع
 
-## Advanced Configuration
-
-### Custom Stealth Paths
-
-Change the stealth path from default `/assets` to something more convincing:
-
-```bash
-# During installation, specify custom path
-STEALTH_PATH="/api/v1/health"
-```
-
-### Multiple Domains
-
-For Reality mode, you can use multiple SNI domains:
-
-```bash
-# Specify multiple domains for better stealth
-SNI_DOMAINS="cloudflare.com,github.com,google.com"
-```
-
-### Load Balancing
-
-For high-traffic scenarios, consider:
-- Multiple Server B instances behind a load balancer
-- DNS round-robin for Server A
-- Connection pooling optimization
-
-## Support
-
-For issues and questions:
-1. Check the logs first
-2. Verify configuration matches between servers
-3. Test with simple tools (nc, curl) before complex applications
-4. Ensure all dependencies are installed correctly
-
-## License
-
-This project is provided as-is for educational and legitimate use cases only. Users are responsible for compliance with local laws and regulations.
+- **Installation Guide / راهنمای نصب**: [README.md](README.md)
+- **Configuration Examples / نمونه‌های پیکربندی**: [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md)
+- **Project Summary / خلاصه پروژه**: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)
+- **Issues / مسائل**: [GitHub Issues](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
+- **Releases / انتشارات**: [GitHub Releases](https://github.com/letmefind/stealth-multiplex-tunnel-xray/releases)
