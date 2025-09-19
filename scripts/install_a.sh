@@ -361,7 +361,7 @@ create_xray_config() {
         }
     }'
     
-    # Add inbounds for each port
+    # Add dokodemo-door inbounds for each client port
     IFS=',' read -ra PORTS <<< "$PORT_LIST"
     for port in "${PORTS[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
@@ -380,6 +380,84 @@ create_xray_config() {
         config=$(echo "$config" | jq '.inbounds += ['"$inbound"']')
         config=$(echo "$config" | jq '.routing.rules += [{"type": "field", "inboundTag": ["entry-'$port'"], "outboundTag": "to-b"}]')
     done
+    
+    # Add VLESS Reality inbound (the actual tunnel server)
+    local reality_inbound
+    if [[ "$SECURITY" == "reality" ]]; then
+        reality_inbound='{
+            "tag": "vless-reality-in",
+            "listen": "0.0.0.0",
+            "port": '$B_TLS_PORT',
+            "protocol": "vless",
+            "settings": {
+                "clients": [{
+                    "id": "'$UUID'"
+                }],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "splithttp",
+                "security": "reality",
+                "realitySettings": {
+                    "show": false,
+                    "dest": "'$REALITY_DEST'",
+                    "xver": 0,
+                    "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
+                    "privateKey": "'$REALITY_PRIVATE_KEY'",
+                    "shortIds": ['$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')']
+                },
+                "splithttpSettings": {
+                    "path": "'$STEALTH_PATH'",
+                    "scMaxEachPostBytes": 1000000,
+                    "scMaxConcurrentPosts": 6,
+                    "scMinPostsIntervalMs": 25,
+                    "noSSEHeader": false,
+                    "noGRPCHeader": true,
+                    "xPaddingBytes": 200,
+                    "keepaliveperiod": 60,
+                    "mode": "auto"
+                }
+            }
+        }'
+    else
+        # TLS configuration
+        reality_inbound='{
+            "tag": "vless-tls-in",
+            "listen": "0.0.0.0",
+            "port": '$B_TLS_PORT',
+            "protocol": "vless",
+            "settings": {
+                "clients": [{
+                    "id": "'$UUID'"
+                }],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "splithttp",
+                "security": "tls",
+                "tlsSettings": {
+                    "serverName": "'$B_DOMAIN'",
+                    "rejectUnknownSni": '$REJECT_UNKNOWN_SNI_LOWERCASE',
+                    "allowInsecure": '$ALLOW_INSECURE_LOWERCASE',
+                    "fingerprint": "'$TLS_FINGERPRINT'",
+                    "alpn": ['$(echo "$ALPN_PROTOCOLS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')']
+                },
+                "splithttpSettings": {
+                    "path": "'$STEALTH_PATH'",
+                    "scMaxEachPostBytes": 1000000,
+                    "scMaxConcurrentPosts": 6,
+                    "scMinPostsIntervalMs": 25,
+                    "noSSEHeader": false,
+                    "noGRPCHeader": true,
+                    "xPaddingBytes": 200,
+                    "keepaliveperiod": 60,
+                    "mode": "auto"
+                }
+            }
+        }'
+    fi
+    
+    config=$(echo "$config" | jq '.inbounds += ['"$reality_inbound"']')
     
     # Add outbound based on protocol and security
     local outbound
