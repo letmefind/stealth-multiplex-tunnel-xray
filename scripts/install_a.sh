@@ -625,7 +625,10 @@ configure_firewall() {
         # Enable UFW if not already enabled
         ufw --force enable
         
-        # Allow required ports
+        # Allow SSH port (essential)
+        ufw allow 22/tcp
+        
+        # Allow tunnel ports
         IFS=',' read -ra PORTS <<< "$PORT_LIST"
         for port in "${PORTS[@]}"; do
             port=$(echo "$port" | xargs) # trim whitespace
@@ -635,6 +638,7 @@ configure_firewall() {
         log_success "UFW firewall configured"
     else
         log_warning "UFW not found. Please configure firewall manually:"
+        echo "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
         IFS=',' read -ra PORTS <<< "$PORT_LIST"
         for port in "${PORTS[@]}"; do
             port=$(echo "$port" | xargs) # trim whitespace

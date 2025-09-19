@@ -756,8 +756,13 @@ configure_firewall() {
         # Enable UFW if not already enabled
         ufw --force enable
         
-        # Allow required ports
+        # Allow SSH port (essential)
+        ufw allow 22/tcp
+        
+        # Allow tunnel port
         ufw allow "$B_TLS_PORT/tcp"
+        
+        # Allow certificate renewal port if using Certbot
         if [[ "$CERT_MODE" == "certbot" ]]; then
             ufw allow 80/tcp
         fi
@@ -765,6 +770,7 @@ configure_firewall() {
         log_success "UFW firewall configured"
     else
         log_warning "UFW not found. Please configure firewall manually:"
+        echo "iptables -A INPUT -p tcp --dport 22 -j ACCEPT"
         echo "iptables -A INPUT -p tcp --dport $B_TLS_PORT -j ACCEPT"
         if [[ "$CERT_MODE" == "certbot" ]]; then
             echo "iptables -A INPUT -p tcp --dport 80 -j ACCEPT"
