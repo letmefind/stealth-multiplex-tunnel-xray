@@ -715,8 +715,6 @@ After=network.target nss-lookup.target
 
 [Service]
 Type=simple
-User=nobody
-Group=nogroup
 ExecStart=/usr/local/bin/xray run -config $XRAY_CONF_DIR/b.json
 Restart=on-failure
 RestartSec=5
