@@ -51,7 +51,9 @@ stealth-multiplex-tunnel-xray/
 │   ├── install_b.sh            # Server B installer
 │   ├── manage_ports.sh         # Port management utility
 │   ├── backup_config.sh        # Configuration backup utility
-│   └── status.sh               # Status monitoring utility
+│   ├── status.sh               # Status monitoring utility
+│   ├── troubleshoot.sh        # Comprehensive troubleshooting script
+│   └── quick_fix.sh            # Quick fix for common issues
 ├── systemd/
 │   ├── xray-a.service          # Server A systemd service
 │   └── xray-b.service          # Server B systemd service
@@ -156,7 +158,9 @@ stealth-multiplex-tunnel-xray/
 │   ├── install_b.sh            # نصب‌کننده سرور B
 │   ├── manage_ports.sh         # ابزار مدیریت پورت
 │   ├── backup_config.sh        # ابزار پشتیبان‌گیری پیکربندی
-│   └── status.sh               # ابزار نظارت وضعیت
+│   ├── status.sh               # ابزار نظارت وضعیت
+│   ├── troubleshoot.sh        # اسکریپت عیب‌یابی جامع
+│   └── quick_fix.sh            # رفع سریع مشکلات رایج
 ├── systemd/
 │   ├── xray-a.service          # سرویس systemd سرور A
 │   └── xray-b.service          # سرویس systemd سرور B
