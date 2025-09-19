@@ -820,10 +820,10 @@ main() {
     check_root
     check_system
     install_xray
+    prompt_config
     if [[ "$SECURITY" == "tls" && "$CERT_MODE" == "certbot" ]]; then
         install_certbot
     fi
-    prompt_config
     configure_certificates
     create_nginx_config
     create_xray_config
