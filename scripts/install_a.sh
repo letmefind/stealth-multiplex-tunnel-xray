@@ -186,9 +186,9 @@ prompt_config() {
         REALITY_SHORT_IDS=""
         for i in {1..10}; do
             if [[ $i -eq 1 ]]; then
-                REALITY_SHORT_IDS="\"$(openssl rand -hex 8)\""
+                REALITY_SHORT_IDS="$(openssl rand -hex 8)"
             else
-                REALITY_SHORT_IDS="$REALITY_SHORT_IDS, \"$(openssl rand -hex 8)\""
+                REALITY_SHORT_IDS="$REALITY_SHORT_IDS,$(openssl rand -hex 8)"
             fi
         done
         
@@ -404,7 +404,7 @@ create_xray_config() {
                         "maxclientver": "",
                         "maxtimediff": 0,
                         "proxyprotocol": 0,
-                        "shortids": [$REALITY_SHORT_IDS],
+                        "shortids": ['$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
                         "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
                         "fingerprint": "safari",
                         "spiderx": "",
@@ -487,7 +487,7 @@ create_xray_config() {
                         "maxclientver": "",
                         "maxtimediff": 0,
                         "proxyprotocol": 0,
-                        "shortids": [$REALITY_SHORT_IDS],
+                        "shortids": ['$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
                         "serverNames": ['$(echo "$SNI_DOMAINS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')'],
                         "fingerprint": "safari",
                         "spiderx": "",
