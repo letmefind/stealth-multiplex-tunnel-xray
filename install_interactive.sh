@@ -70,12 +70,6 @@ main() {
     echo -e "${BLUE}================================${NC}"
     echo
     
-    # Check for help first
-    if [ $# -gt 0 ] && [[ "$1" =~ ^(--help|-h|help)$ ]]; then
-        show_usage
-        exit 0
-    fi
-    
     # Check if running as root
     if [ "$EUID" -ne 0 ]; then
         print_error "Please run as root"

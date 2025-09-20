@@ -1,0 +1,751 @@
+#!/bin/bash
+
+# VLESS+REALITY Configuration Generator
+# Usage: bash install [options]
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Default values
+DEFAULT_SERVER_B_IP="91.98.86.167"
+DEFAULT_TUNNEL_PORT="8081"
+DEFAULT_SERVER_NAME="www.accounts.accesscontrol.windows.net"
+DEFAULT_PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
+DEFAULT_PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
+DEFAULT_SHORT_ID="db78ea236c7e33f5"
+DEFAULT_TARGET_PORT="8443"
+DEFAULT_DOMAIN="test.bale.cyou"
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to show usage
+show_usage() {
+    echo "Usage: bash install [options]"
+    echo
+    echo "Options:"
+    echo "  --server-b-ip IP        Server B IP address (default: $DEFAULT_SERVER_B_IP)"
+    echo "  --tunnel-port PORT      Tunnel port (default: $DEFAULT_TUNNEL_PORT)"
+    echo "  --target-port PORT      Target port to tunnel (default: $DEFAULT_TARGET_PORT)"
+    echo "  --server-name NAME      Reality server name (default: $DEFAULT_SERVER_NAME)"
+    echo "  --domain DOMAIN         Domain name for nginx (default: $DEFAULT_DOMAIN)"
+    echo "  --public-key KEY        Reality public key (auto-generated if not provided)"
+    echo "  --private-key KEY       Reality private key (auto-generated if not provided)"
+    echo "  --short-id ID           Reality short ID (auto-generated if not provided)"
+    echo "  --uuid UUID             VLESS UUID (auto-generated if not provided)"
+    echo "  --interactive           Use interactive mode"
+    echo "  --help                  Show this help message"
+    echo
+    echo "Examples:"
+    echo "  bash install"
+    echo "  bash install --server-b-ip 192.168.1.100 --target-port 8443"
+    echo "  bash install --interactive"
+}
+
+# Function to generate UUID
+generate_uuid() {
+    if command -v uuidgen >/dev/null 2>&1; then
+        uuidgen
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "import uuid; print(uuid.uuid4())"
+    else
+        # Fallback UUID generation
+        cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "12345678-1234-1234-1234-123456789abc"
+    fi
+}
+
+# Function to validate port
+validate_port() {
+    local port="$1"
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        return 1
+    fi
+    return 0
+}
+
+# Function to validate IP
+validate_ip() {
+    local ip="$1"
+    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to get user input with defaults
+get_input() {
+    local prompt="$1"
+    local default="$2"
+    local value
+    
+    if [ -n "$default" ]; then
+        read -p "$prompt [$default]: " value
+        echo "${value:-$default}"
+    else
+        read -p "$prompt: " value
+        echo "$value"
+    fi
+}
+
+# Parse command line arguments
+parse_arguments() {
+    SERVER_B_IP="$DEFAULT_SERVER_B_IP"
+    TUNNEL_PORT="$DEFAULT_TUNNEL_PORT"
+    TARGET_PORT="$DEFAULT_TARGET_PORT"
+    SERVER_NAME="$DEFAULT_SERVER_NAME"
+    DOMAIN="$DEFAULT_DOMAIN"
+    PUBLIC_KEY=""
+    PRIVATE_KEY=""
+    SHORT_ID=""
+    UUID=""
+    INTERACTIVE=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --server-b-ip)
+                SERVER_B_IP="$2"
+                shift 2
+                ;;
+            --tunnel-port)
+                TUNNEL_PORT="$2"
+                shift 2
+                ;;
+            --target-port)
+                TARGET_PORT="$2"
+                shift 2
+                ;;
+            --server-name)
+                SERVER_NAME="$2"
+                shift 2
+                ;;
+            --domain)
+                DOMAIN="$2"
+                shift 2
+                ;;
+            --public-key)
+                PUBLIC_KEY="$2"
+                shift 2
+                ;;
+            --private-key)
+                PRIVATE_KEY="$2"
+                shift 2
+                ;;
+            --short-id)
+                SHORT_ID="$2"
+                shift 2
+                ;;
+            --uuid)
+                UUID="$2"
+                shift 2
+                ;;
+            --interactive)
+                INTERACTIVE=true
+                shift
+                ;;
+            --help)
+                show_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Interactive mode
+interactive_mode() {
+    print_info "Please provide the following configuration details:"
+    echo
+    
+    # Server B IP
+    SERVER_B_IP=$(get_input "Server B IP address" "$SERVER_B_IP")
+    while ! validate_ip "$SERVER_B_IP"; do
+        print_error "Invalid IP address format"
+        SERVER_B_IP=$(get_input "Server B IP address" "$SERVER_B_IP")
+    done
+    
+    # Tunnel port
+    TUNNEL_PORT=$(get_input "Tunnel port (VLESS connection port)" "$TUNNEL_PORT")
+    while ! validate_port "$TUNNEL_PORT"; do
+        print_error "Invalid port number"
+        TUNNEL_PORT=$(get_input "Tunnel port (VLESS connection port)" "$TUNNEL_PORT")
+    done
+    
+    # Target port
+    TARGET_PORT=$(get_input "Target port to tunnel (e.g., 8443 for XMPlus)" "$TARGET_PORT")
+    while ! validate_port "$TARGET_PORT" || [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; do
+        if [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; then
+            print_error "Target port cannot be 80 or 443 (use nginx for these)"
+        else
+            print_error "Invalid port number"
+        fi
+        TARGET_PORT=$(get_input "Target port to tunnel (e.g., 8443 for XMPlus)" "$TARGET_PORT")
+    done
+    
+    # Server name
+    SERVER_NAME=$(get_input "Reality server name (SNI)" "$SERVER_NAME")
+    
+    # Domain
+    DOMAIN=$(get_input "Domain name for nginx" "$DOMAIN")
+}
+
+# Main configuration function
+main() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}  VLESS+REALITY Config Generator${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo
+    
+    # Parse arguments
+    parse_arguments "$@"
+    
+    # Validate inputs
+    if ! validate_ip "$SERVER_B_IP"; then
+        print_error "Invalid Server B IP address: $SERVER_B_IP"
+        exit 1
+    fi
+    
+    if ! validate_port "$TUNNEL_PORT"; then
+        print_error "Invalid tunnel port: $TUNNEL_PORT"
+        exit 1
+    fi
+    
+    if ! validate_port "$TARGET_PORT" || [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; then
+        if [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; then
+            print_error "Target port cannot be 80 or 443 (use nginx for these)"
+        else
+            print_error "Invalid target port: $TARGET_PORT"
+        fi
+        exit 1
+    fi
+    
+    # Interactive mode if requested
+    if [ "$INTERACTIVE" = true ]; then
+        interactive_mode
+    fi
+    
+    # Generate keys if not provided
+    if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ] || [ -z "$SHORT_ID" ]; then
+        print_info "Generating Reality keys..."
+        
+        if command -v xray >/dev/null 2>&1; then
+            # Use xray to generate keys
+            KEYS=$(xray x25519 2>/dev/null)
+            if [ -z "$PUBLIC_KEY" ]; then
+                PUBLIC_KEY=$(echo "$KEYS" | grep "Public key:" | cut -d' ' -f3)
+            fi
+            if [ -z "$PRIVATE_KEY" ]; then
+                PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
+            fi
+            if [ -z "$SHORT_ID" ]; then
+                SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
+            fi
+            
+            print_success "Generated Reality keys:"
+            echo "  Public Key: $PUBLIC_KEY"
+            echo "  Private Key: $PRIVATE_KEY"
+            echo "  Short ID: $SHORT_ID"
+        else
+            print_warning "Xray not found, using default keys"
+            if [ -z "$PUBLIC_KEY" ]; then
+                PUBLIC_KEY="$DEFAULT_PUBLIC_KEY"
+            fi
+            if [ -z "$PRIVATE_KEY" ]; then
+                PRIVATE_KEY="$DEFAULT_PRIVATE_KEY"
+            fi
+            if [ -z "$SHORT_ID" ]; then
+                SHORT_ID="$DEFAULT_SHORT_ID"
+            fi
+        fi
+    fi
+    
+    # Generate UUID if not provided
+    if [ -z "$UUID" ]; then
+        UUID=$(generate_uuid)
+        print_success "Generated UUID: $UUID"
+    fi
+    
+    echo
+    print_info "Configuration summary:"
+    echo "  Server B IP: $SERVER_B_IP"
+    echo "  Tunnel Port: $TUNNEL_PORT"
+    echo "  Target Port: $TARGET_PORT"
+    echo "  Server Name: $SERVER_NAME"
+    echo "  Domain: $DOMAIN"
+    echo "  UUID: $UUID"
+    echo "  Public Key: $PUBLIC_KEY"
+    echo "  Private Key: $PRIVATE_KEY"
+    echo "  Short ID: $SHORT_ID"
+    echo
+    
+    print_info "Generating configuration files..."
+    
+    # Create output directory
+    OUTPUT_DIR="./generated_configs_$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$OUTPUT_DIR"
+    
+    # Generate Server A config
+    generate_server_a_config "$OUTPUT_DIR" "$SERVER_B_IP" "$TUNNEL_PORT" "$UUID" "$PUBLIC_KEY" "$SHORT_ID" "$SERVER_NAME"
+    
+    # Generate Server B config
+    generate_server_b_config "$OUTPUT_DIR" "$TUNNEL_PORT" "$UUID" "$PRIVATE_KEY" "$SHORT_ID" "$SERVER_NAME" "$TARGET_PORT"
+    
+    # Generate Nginx config
+    generate_nginx_config "$OUTPUT_DIR" "$DOMAIN" "$TUNNEL_PORT"
+    
+    # Generate installation script
+    generate_install_script "$OUTPUT_DIR" "$TARGET_PORT"
+    
+    print_success "Configuration files generated in: $OUTPUT_DIR"
+    echo
+    print_info "Next steps:"
+    echo "1. Copy Server A config to your tunnel server: /etc/xray/a.json"
+    echo "2. Copy Server B config to your destination server: /etc/xray/b.json"
+    echo "3. Copy Nginx config to your destination server: /etc/nginx/conf.d/stealth-$TUNNEL_PORT.conf"
+    echo "4. Run the installation script on both servers"
+    echo "5. Restart services: systemctl restart xray nginx"
+}
+
+# Generate Server A configuration
+generate_server_a_config() {
+    local output_dir="$1"
+    local server_b_ip="$2"
+    local tunnel_port="$3"
+    local uuid="$4"
+    local public_key="$5"
+    local short_id="$6"
+    local server_name="$7"
+    
+    cat > "$output_dir/server_a.json" << EOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "entry-80",
+      "listen": "0.0.0.0",
+      "port": 80,
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1", "port": 80, "network": "tcp" }
+    },
+    {
+      "tag": "entry-443",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1", "port": 443, "network": "tcp" }
+    },
+    {
+      "tag": "entry-8080",
+      "listen": "0.0.0.0",
+      "port": 8080,
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1", "port": 8080, "network": "tcp" }
+    },
+    {
+      "tag": "entry-8443",
+      "listen": "0.0.0.0",
+      "port": 8443,
+      "protocol": "dokodemo-door",
+      "settings": { "address": "127.0.0.1", "port": 8443, "network": "tcp" }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "to-b",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$server_b_ip",
+            "port": $tunnel_port,
+            "users": [
+              { "id": "$uuid", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "$server_name",
+          "publicKey": "$public_key",
+          "shortId": "$short_id",
+          "fingerprint": "chrome",
+          "spiderX": "/"
+        },
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 200,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    },
+    { "protocol": "freedom", "tag": "direct" }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      { "type": "field", "inboundTag": ["entry-80"],   "outboundTag": "to-b" },
+      { "type": "field", "inboundTag": ["entry-443"],  "outboundTag": "to-b" },
+      { "type": "field", "inboundTag": ["entry-8080"], "outboundTag": "to-b" },
+      { "type": "field", "inboundTag": ["entry-8443"], "outboundTag": "to-b" }
+    ]
+  }
+}
+EOF
+    
+    print_success "Server A config generated: $output_dir/server_a.json"
+}
+
+# Generate Server B configuration
+generate_server_b_config() {
+    local output_dir="$1"
+    local tunnel_port="$2"
+    local uuid="$3"
+    local private_key="$4"
+    local short_id="$5"
+    local server_name="$6"
+    local target_port="$7"
+    
+    cat > "$output_dir/server_b.json" << EOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "tunnel-in",
+      "listen": "0.0.0.0",
+      "port": $tunnel_port,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "$uuid" }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$server_name"],
+          "privateKey": "$private_key",
+          "shortIds": ["$short_id"]
+        },
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 200,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    { "tag": "to-nginx-80",  "protocol": "freedom", "settings": { "redirect": "127.0.0.1:80"  } },
+    { "tag": "to-nginx-443", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:443" } },
+    { "tag": "to-xmplus",    "protocol": "freedom", "settings": { "redirect": "127.0.0.1:$target_port" } }
+  ],
+  "routing": {
+    "rules": [
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "80",   "outboundTag": "to-nginx-80"  },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "443",  "outboundTag": "to-nginx-443" },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "8080,$target_port,8082,9090", "outboundTag": "to-xmplus" }
+    ]
+  }
+}
+EOF
+    
+    print_success "Server B config generated: $output_dir/server_b.json"
+}
+
+# Generate Nginx configuration
+generate_nginx_config() {
+    local output_dir="$1"
+    local domain="$2"
+    local tunnel_port="$3"
+    
+    cat > "$output_dir/nginx_stealth.conf" << EOF
+# Public HTTP -> redirect to HTTPS
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://\$host\$request_uri;
+}
+
+# Public HTTPS decoy site
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name $domain;
+
+    ssl_certificate     /etc/ssl/certs/decoy.crt;
+    ssl_certificate_key /etc/ssl/private/decoy.key;
+
+    # Minimal "normal" site
+    root /var/www/html;
+    index index.html;
+
+    # Security headers (optional but fine)
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Serve files; no tunnel proxy here
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    # Block dotfiles & configs
+    location ~ /\\.         { deny all; }
+    location ~ \\.(log|conf)\$ { deny all; }
+}
+EOF
+    
+    print_success "Nginx config generated: $output_dir/nginx_stealth.conf"
+}
+
+# Generate installation script
+generate_install_script() {
+    local output_dir="$1"
+    local target_port="$2"
+    
+    cat > "$output_dir/install.sh" << 'EOF'
+#!/bin/bash
+
+# Installation script for VLESS+REALITY tunnel
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    print_error "Please run as root"
+    exit 1
+fi
+
+# Detect server type
+if [ -f "server_a.json" ]; then
+    SERVER_TYPE="A"
+    CONFIG_FILE="server_a.json"
+    XRAY_CONFIG="/etc/xray/a.json"
+elif [ -f "server_b.json" ]; then
+    SERVER_TYPE="B"
+    CONFIG_FILE="server_b.json"
+    XRAY_CONFIG="/etc/xray/b.json"
+else
+    print_error "No configuration file found!"
+    exit 1
+fi
+
+print_info "Installing on Server $SERVER_TYPE..."
+
+# Install Xray if not present
+if ! command -v xray >/dev/null 2>&1; then
+    print_info "Installing Xray..."
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+fi
+
+# Install Nginx if not present (Server B only)
+if [ "$SERVER_TYPE" = "B" ] && ! command -v nginx >/dev/null 2>&1; then
+    print_info "Installing Nginx..."
+    if command -v apt >/dev/null 2>&1; then
+        apt update && apt install -y nginx
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y nginx
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y nginx
+    fi
+fi
+
+# Create Xray directories
+mkdir -p /etc/xray
+mkdir -p /var/log/xray
+
+# Copy configuration
+print_info "Installing Xray configuration..."
+cp "$CONFIG_FILE" "$XRAY_CONFIG"
+
+# Set permissions
+chown root:root "$XRAY_CONFIG"
+chmod 644 "$XRAY_CONFIG"
+
+# Install Nginx configuration (Server B only)
+if [ "$SERVER_TYPE" = "B" ] && [ -f "nginx_stealth.conf" ]; then
+    print_info "Installing Nginx configuration..."
+    cp nginx_stealth.conf /etc/nginx/conf.d/
+    
+    # Create decoy SSL certificates if they don't exist
+    if [ ! -f "/etc/ssl/certs/decoy.crt" ]; then
+        print_info "Creating decoy SSL certificates..."
+        mkdir -p /etc/ssl/certs /etc/ssl/private
+        
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/ssl/private/decoy.key \
+            -out /etc/ssl/certs/decoy.crt \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+    fi
+    
+    # Create web root and index
+    mkdir -p /var/www/html
+    cat > /var/www/html/index.html << 'HTML'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome</title>
+</head>
+<body>
+    <h1>Welcome to our website</h1>
+    <p>This is a normal website.</p>
+</body>
+</html>
+HTML
+fi
+
+# Create systemd service files
+print_info "Creating systemd services..."
+
+# Xray A service
+cat > /etc/systemd/system/xray-a.service << 'SERVICE'
+[Unit]
+Description=Xray Service (Server A)
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /etc/xray/a.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+# Xray B service
+cat > /etc/systemd/system/xray-b.service << 'SERVICE'
+[Unit]
+Description=Xray Service (Server B)
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /etc/xray/b.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+# Reload systemd
+systemctl daemon-reload
+
+# Enable and start services
+if [ "$SERVER_TYPE" = "A" ]; then
+    systemctl enable xray-a
+    systemctl restart xray-a
+    print_success "Xray A service started"
+elif [ "$SERVER_TYPE" = "B" ]; then
+    systemctl enable xray-b
+    systemctl restart xray-b
+    systemctl enable nginx
+    systemctl restart nginx
+    print_success "Xray B and Nginx services started"
+fi
+
+# Check service status
+print_info "Checking service status..."
+if [ "$SERVER_TYPE" = "A" ]; then
+    systemctl status xray-a --no-pager
+elif [ "$SERVER_TYPE" = "B" ]; then
+    systemctl status xray-b --no-pager
+    systemctl status nginx --no-pager
+fi
+
+print_success "Installation completed successfully!"
+print_info "Configuration files:"
+echo "  Xray config: $XRAY_CONFIG"
+if [ "$SERVER_TYPE" = "B" ]; then
+    echo "  Nginx config: /etc/nginx/conf.d/nginx_stealth.conf"
+fi
+EOF
+    
+    chmod +x "$output_dir/install.sh"
+    print_success "Installation script generated: $output_dir/install.sh"
+}
+
+# Run main function
+main "$@"
