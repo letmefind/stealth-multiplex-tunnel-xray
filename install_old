@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# VLESS+REALITY Tunnel Installation Script
+# This script automatically detects Server A or B and runs the appropriate installation
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to show usage
+show_usage() {
+    echo "Usage: bash install [server-type]"
+    echo
+    echo "Server types:"
+    echo "  a, server-a, tunnel    Install on Server A (Tunnel Server)"
+    echo "  b, server-b, dest     Install on Server B (Destination Server)"
+    echo "  auto                  Auto-detect server type (default)"
+    echo
+    echo "Examples:"
+    echo "  bash install"
+    echo "  bash install a"
+    echo "  bash install server-b"
+    echo
+    echo "Manual installation:"
+    echo "  bash install_a.sh    # For Server A only"
+    echo "  bash install_b.sh    # For Server B only"
+}
+
+# Function to detect server type
+detect_server_type() {
+    print_info "Auto-detecting server type..." >&2
+    
+    # Check if this looks like Server A (tunnel server)
+    # Server A typically has fewer services and is the entry point
+    if command -v nginx >/dev/null 2>&1; then
+        # If nginx is already installed, likely Server B
+        echo "b"
+    else
+        # If no nginx, likely Server A
+        echo "a"
+    fi
+}
+
+# Main function
+main() {
+    echo -e "${BLUE}================================${NC}"
+    echo -e "${BLUE}  VLESS+REALITY Tunnel Installer${NC}"
+    echo -e "${BLUE}================================${NC}"
+    echo
+    
+    # Check for help first
+    if [ $# -gt 0 ] && [[ "$1" =~ ^(--help|-h|help)$ ]]; then
+        show_usage
+        exit 0
+    fi
+    
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        print_error "Please run as root"
+        exit 1
+    fi
+    
+    # Determine server type
+    SERVER_TYPE=""
+    if [ $# -eq 0 ]; then
+        # No arguments, auto-detect
+        SERVER_TYPE=$(detect_server_type)
+    else
+        case "$1" in
+            "a"|"server-a"|"tunnel")
+                SERVER_TYPE="a"
+                ;;
+            "b"|"server-b"|"dest"|"destination")
+                SERVER_TYPE="b"
+                ;;
+            "auto")
+                SERVER_TYPE=$(detect_server_type)
+                ;;
+            "--help"|"-h"|"help")
+                show_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown server type: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    fi
+    
+    print_info "Detected server type: Server $SERVER_TYPE"
+    echo
+    
+    if [ "$SERVER_TYPE" = "a" ]; then
+        print_info "Installing on Server A (Tunnel Server)..."
+        print_warning "This server will receive traffic and forward it to Server B"
+        echo
+        bash install_a.sh
+    elif [ "$SERVER_TYPE" = "b" ]; then
+        print_info "Installing on Server B (Destination Server)..."
+        print_warning "This server will receive tunneled traffic and route it to local services"
+        echo
+        bash install_b.sh
+    else
+        print_error "Could not determine server type"
+        exit 1
+    fi
+}
+
+# Run main function
+main "$@"
