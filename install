@@ -5,6 +5,9 @@
 
 set -e
 
+# Debug mode - uncomment to enable debug output
+# set -x
+
 # Modern Color Palette
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -151,10 +154,24 @@ generate_reality_keys() {
         PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
         SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
         
-        print_success "Generated Reality keys successfully"
+        # Debug: Check if keys were parsed correctly
+        if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
+            print_warning "Failed to parse Reality keys, using default keys"
+            PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
+            PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
+            SHORT_ID="db78ea236c7e33f5"
+        else
+            print_success "Generated Reality keys successfully"
+        fi
+        
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+        
+        # Debug: Show the actual values
+        echo "DEBUG: PUBLIC_KEY='$PUBLIC_KEY'" >&2
+        echo "DEBUG: PRIVATE_KEY='$PRIVATE_KEY'" >&2
+        echo "DEBUG: SHORT_ID='$SHORT_ID'" >&2
     else
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
@@ -165,12 +182,22 @@ generate_reality_keys() {
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+        
+        # Debug: Show the actual values
+        echo "DEBUG: PUBLIC_KEY='$PUBLIC_KEY'" >&2
+        echo "DEBUG: PRIVATE_KEY='$PRIVATE_KEY'" >&2
+        echo "DEBUG: SHORT_ID='$SHORT_ID'" >&2
     fi
     
     # Export the variables so they're available globally
     export PUBLIC_KEY
     export PRIVATE_KEY
     export SHORT_ID
+    
+    # Debug: Verify export worked
+    echo "DEBUG: After export - PUBLIC_KEY='$PUBLIC_KEY'" >&2
+    echo "DEBUG: After export - PRIVATE_KEY='$PRIVATE_KEY'" >&2
+    echo "DEBUG: After export - SHORT_ID='$SHORT_ID'" >&2
 }
 
 # Function to validate port
@@ -289,6 +316,12 @@ install_server_a() {
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "UUID" "$UUID"
+    
+    # Debug: Show the actual values before displaying
+    echo "DEBUG: Before summary - PUBLIC_KEY='$PUBLIC_KEY'" >&2
+    echo "DEBUG: Before summary - PRIVATE_KEY='$PRIVATE_KEY'" >&2
+    echo "DEBUG: Before summary - SHORT_ID='$SHORT_ID'" >&2
+    
     print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
     print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
     print_config_item "Short ID (for both servers)" "$SHORT_ID"
