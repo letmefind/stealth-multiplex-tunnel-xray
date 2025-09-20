@@ -77,6 +77,13 @@ print_config_item() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}${key}:${NC} ${CYAN}${value}${NC}"
 }
 
+print_short_ids() {
+    local key="$1"
+    local short_ids="$2"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}${key}:${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}${short_ids}${NC}"
+}
+
 # Function to show animated loading
 show_loading() {
     local message="$1"
@@ -316,7 +323,7 @@ install_server_a() {
     
     print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
     print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
-    print_config_item "Short IDs (20 different)" "Generated 20 different short IDs"
+    print_short_ids "Short IDs (20 different)" "$SHORT_IDS"
     print_section_end
     
     # Confirm installation
@@ -589,7 +596,7 @@ install_server_b() {
     print_section "Configuration Summary"
     print_config_item "UUID" "$UUID"
     print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
-    print_config_item "Short IDs (20 different)" "$SERVER_B_SHORT_IDS"
+    print_short_ids "Short IDs (20 different)" "$SERVER_B_SHORT_IDS"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Target Port" "$TARGET_PORT"
