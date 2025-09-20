@@ -50,7 +50,7 @@ show_usage() {
 
 # Function to detect server type
 detect_server_type() {
-    print_info "Auto-detecting server type..."
+    print_info "Auto-detecting server type..." >&2
     
     # Check if this looks like Server A (tunnel server)
     # Server A typically has fewer services and is the entry point
