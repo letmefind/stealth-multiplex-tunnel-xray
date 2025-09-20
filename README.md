@@ -27,8 +27,8 @@ A production-ready, stealth tunnel solution supporting multiple protocols (VLESS
 git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
 
-# Run the unified installer
-sudo bash install.sh
+# Run the interactive installer
+sudo bash install
 ```
 
 ### 🏗️ Architecture
@@ -40,36 +40,57 @@ sudo bash install.sh
 
 ```
 stealth-multiplex-tunnel-xray/
-├── install.sh                    # Unified installer
-├── README.md                     # Comprehensive documentation
-├── .env.example                  # Configuration template
-├── .gitignore                    # Git ignore rules
-├── CONFIGURATION_EXAMPLES.md     # Configuration examples
-├── PROJECT_SUMMARY.md            # Detailed project summary
+├── install                       # 🚀 Main interactive installer
+├── README.md                     # 📖 Comprehensive documentation
+├── README_FA.md                  # 📖 Persian documentation
+├── LICENSE                       # 📄 License file
+├── CONFIGURATION_EXAMPLES.md     # 📋 Configuration examples
+├── DESCRIPTION.md                # 📝 Project description
+├── PROJECT_SUMMARY.md            # 📊 Detailed project summary
 ├── scripts/
-│   ├── install_a.sh            # Server A installer
-│   ├── install_b.sh            # Server B installer
-│   ├── manage_ports.sh         # Port management utility
-│   ├── backup_config.sh        # Configuration backup utility
-│   ├── status.sh               # Status monitoring utility
-│   ├── troubleshoot.sh        # Comprehensive troubleshooting script
-│   └── quick_fix.sh            # Quick fix for common issues
+│   ├── install_a.sh            # 🔧 Server A installer
+│   ├── install_b.sh            # 🔧 Server B installer
+│   ├── manage_ports.sh         # 🔧 Port management utility
+│   ├── backup_config.sh        # 🔧 Configuration backup utility
+│   ├── status.sh               # 🔧 Status monitoring utility
+│   ├── troubleshoot.sh         # 🔧 Comprehensive troubleshooting script
+│   ├── quick_fix.sh            # 🔧 Quick fix for common issues
+│   └── resolve_xray_conflict.sh # 🔧 Xray conflict resolver
 ├── systemd/
-│   ├── xray-a.service          # Server A systemd service
-│   └── xray-b.service          # Server B systemd service
+│   ├── xray-a.service          # ⚙️ Server A systemd service
+│   └── xray-b.service          # ⚙️ Server B systemd service
 ├── nginx/
-│   └── stealth-8081.conf       # Nginx configuration template
+│   └── stealth-8081.conf       # 🌐 Nginx configuration template
 └── xray/
     └── templates/
-        ├── a.tmpl.json         # Server A Xray template
-        └── b.tmpl.json         # Server B Xray template
+        ├── a.tmpl.json         # 🛠️ Server A Xray template
+        └── b.tmpl.json         # 🛠️ Server B Xray template
 ```
 
 ### 🔧 Installation Process
 
-1. **Install Server B (Receiver)** - Generates UUID and Reality keys
-2. **Install Server A (Entry)** - Uses same configuration
-3. **Test connectivity** - Verify end-to-end functionality
+1. **Run Interactive Installer** - `sudo bash install`
+2. **Choose Server Type** - Server A (Tunnel) or Server B (Destination)
+3. **Configure Settings** - Follow interactive prompts
+4. **Generate Keys** - Reality keys generated automatically
+5. **Test connectivity** - Verify end-to-end functionality
+
+### 🎯 Installation Options
+
+- **Interactive Mode**: `sudo bash install` (recommended)
+- **Auto-detect**: `sudo bash install auto`
+- **Server A**: `sudo bash install a`
+- **Server B**: `sudo bash install b`
+
+### ✨ Interactive Installer Features
+
+- **Modern UI**: Beautiful, colorful interface with emojis and progress indicators
+- **Step-by-step Setup**: Clear questions with explanations and default values
+- **Automatic Key Generation**: Reality keys generated automatically with Xray
+- **Input Validation**: IP address and port validation with helpful error messages
+- **Configuration Summary**: Review all settings before installation
+- **Server Type Detection**: Auto-detect server type based on installed services
+- **Comprehensive Logging**: Detailed installation logs and status messages
 
 ### 🛡️ Security Features
 
@@ -134,8 +155,8 @@ For issues and questions, please open an issue on GitHub.
 git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
 
-# اجرای نصب‌کننده یکپارچه
-sudo bash install.sh
+# اجرای نصب‌کننده تعاملی
+sudo bash install
 ```
 
 ### 🏗️ معماری
@@ -147,36 +168,57 @@ sudo bash install.sh
 
 ```
 stealth-multiplex-tunnel-xray/
-├── install.sh                    # نصب‌کننده یکپارچه
-├── README.md                     # مستندات جامع
-├── .env.example                  # الگوی پیکربندی
-├── .gitignore                    # قوانین نادیده‌گیری Git
-├── CONFIGURATION_EXAMPLES.md     # نمونه‌های پیکربندی
-├── PROJECT_SUMMARY.md            # خلاصه تفصیلی پروژه
+├── install                       # 🚀 نصب‌کننده تعاملی اصلی
+├── README.md                     # 📖 مستندات جامع
+├── README_FA.md                  # 📖 مستندات فارسی
+├── LICENSE                       # 📄 فایل مجوز
+├── CONFIGURATION_EXAMPLES.md     # 📋 نمونه‌های پیکربندی
+├── DESCRIPTION.md                # 📝 توضیحات پروژه
+├── PROJECT_SUMMARY.md            # 📊 خلاصه تفصیلی پروژه
 ├── scripts/
-│   ├── install_a.sh            # نصب‌کننده سرور A
-│   ├── install_b.sh            # نصب‌کننده سرور B
-│   ├── manage_ports.sh         # ابزار مدیریت پورت
-│   ├── backup_config.sh        # ابزار پشتیبان‌گیری پیکربندی
-│   ├── status.sh               # ابزار نظارت وضعیت
-│   ├── troubleshoot.sh        # اسکریپت عیب‌یابی جامع
-│   └── quick_fix.sh            # رفع سریع مشکلات رایج
+│   ├── install_a.sh            # 🔧 نصب‌کننده سرور A
+│   ├── install_b.sh            # 🔧 نصب‌کننده سرور B
+│   ├── manage_ports.sh         # 🔧 ابزار مدیریت پورت
+│   ├── backup_config.sh        # 🔧 ابزار پشتیبان‌گیری پیکربندی
+│   ├── status.sh               # 🔧 ابزار نظارت وضعیت
+│   ├── troubleshoot.sh         # 🔧 اسکریپت عیب‌یابی جامع
+│   ├── quick_fix.sh            # 🔧 رفع سریع مشکلات رایج
+│   └── resolve_xray_conflict.sh # 🔧 حل‌کننده تعارض Xray
 ├── systemd/
-│   ├── xray-a.service          # سرویس systemd سرور A
-│   └── xray-b.service          # سرویس systemd سرور B
+│   ├── xray-a.service          # ⚙️ سرویس systemd سرور A
+│   └── xray-b.service          # ⚙️ سرویس systemd سرور B
 ├── nginx/
-│   └── stealth-8081.conf       # الگوی پیکربندی Nginx
+│   └── stealth-8081.conf       # 🌐 الگوی پیکربندی Nginx
 └── xray/
     └── templates/
-        ├── a.tmpl.json         # الگوی Xray سرور A
-        └── b.tmpl.json         # الگوی Xray سرور B
+        ├── a.tmpl.json         # 🛠️ الگوی Xray سرور A
+        └── b.tmpl.json         # 🛠️ الگوی Xray سرور B
 ```
 
 ### 🔧 فرآیند نصب
 
-1. **نصب سرور B (گیرنده)** - تولید UUID و کلیدهای Reality
-2. **نصب سرور A (ورودی)** - استفاده از همان پیکربندی
-3. **تست اتصال** - تأیید عملکرد end-to-end
+1. **اجرای نصب‌کننده تعاملی** - `sudo bash install`
+2. **انتخاب نوع سرور** - سرور A (تونل) یا سرور B (مقصد)
+3. **پیکربندی تنظیمات** - دنبال کردن دستورالعمل‌های تعاملی
+4. **تولید کلیدها** - کلیدهای Reality به صورت خودکار تولید می‌شوند
+5. **تست اتصال** - تأیید عملکرد end-to-end
+
+### 🎯 گزینه‌های نصب
+
+- **حالت تعاملی**: `sudo bash install` (توصیه شده)
+- **تشخیص خودکار**: `sudo bash install auto`
+- **سرور A**: `sudo bash install a`
+- **سرور B**: `sudo bash install b`
+
+### ✨ ویژگی‌های نصب‌کننده تعاملی
+
+- **رابط کاربری مدرن**: رابط زیبا و رنگی با ایموجی و نشانگرهای پیشرفت
+- **راه‌اندازی گام به گام**: سوالات واضح با توضیحات و مقادیر پیش‌فرض
+- **تولید خودکار کلید**: کلیدهای Reality به صورت خودکار با Xray تولید می‌شوند
+- **اعتبارسنجی ورودی**: اعتبارسنجی آدرس IP و پورت با پیام‌های خطای مفید
+- **خلاصه پیکربندی**: بررسی تمام تنظیمات قبل از نصب
+- **تشخیص نوع سرور**: تشخیص خودکار نوع سرور بر اساس سرویس‌های نصب شده
+- **ثبت‌سازی جامع**: لاگ‌های تفصیلی نصب و پیام‌های وضعیت
 
 ### 🛡️ ویژگی‌های امنیتی
 
