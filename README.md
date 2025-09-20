@@ -102,6 +102,56 @@ stealth-multiplex-tunnel-xray/
 - Firewall integration
 - UUID security
 
+### 🌐 XHTTP (SplitHTTP) Configuration
+
+The tunnel uses XHTTP (SplitHTTP) transport for stealth communication. Here's what each configuration value means:
+
+#### **Core Settings:**
+- **`path`**: `/assets` - The HTTP path used for tunnel communication (disguised as asset requests)
+- **`mode`**: `auto` - Automatic mode selection for optimal performance
+
+#### **Performance Tuning:**
+- **`scMaxEachPostBytes`**: `1000000` (1MB) - Maximum bytes per HTTP POST request
+- **`scMaxConcurrentPosts`**: `6` - Maximum concurrent HTTP POST requests
+- **`scMinPostsIntervalMs`**: `25` - Minimum interval between POST requests (25ms)
+
+#### **Stealth Features:**
+- **`noSSEHeader`**: `false` - Include Server-Sent Events headers (appears more legitimate)
+- **`noGRPCHeader`**: `true` - Exclude gRPC headers (reduces detection)
+- **`xPaddingBytes`**: `200` - Random padding bytes to vary packet sizes
+
+#### **Connection Management:**
+- **`keepaliveperiod`**: `60` - Keep-alive period in seconds for HTTP connections
+
+#### **Why These Values Matter:**
+- **Stealth**: Mimics legitimate HTTP traffic patterns
+- **Performance**: Optimized for high-throughput tunneling
+- **Detection Avoidance**: Varies packet sizes and timing to avoid DPI detection
+- **Reliability**: Maintains stable connections with proper keep-alive settings
+
+### 🔐 Reality Protocol Configuration
+
+The tunnel uses Reality protocol for enhanced security and stealth. Here's what each Reality setting means:
+
+#### **Core Reality Settings:**
+- **`serverName`**: `www.accounts.accesscontrol.windows.net` - SNI (Server Name Indication) for TLS handshake
+- **`publicKey`**: Generated X25519 public key for Server A outbound connections
+- **`privateKey`**: Generated X25519 private key for Server B inbound connections
+- **`shortIds`**: Array of 20 different short IDs (16 characters each) for client distinction
+
+#### **Advanced Reality Settings:**
+- **`fingerprint`**: `chrome` - TLS fingerprint to mimic Chrome browser
+- **`spiderX`**: `/` - Path for Reality spider (Server A only)
+- **`show`**: `false` - Don't show Reality handshake (Server B only)
+- **`dest`**: `www.microsoft.com:443` - Destination for Reality handshake (Server B only)
+- **`serverNames`**: Array containing the server name for validation
+
+#### **Security Benefits:**
+- **No Certificate Required**: Reality doesn't need real SSL certificates
+- **Perfect Forward Secrecy**: Each connection uses unique keys
+- **DPI Resistance**: Harder to detect than traditional TLS tunnels
+- **Browser Mimicking**: Appears as legitimate browser traffic
+
 ### 📊 Management Tools
 
 - **Port Management**: Add/remove ports dynamically
@@ -229,6 +279,56 @@ stealth-multiplex-tunnel-xray/
 - مدیریت گواهی
 - یکپارچگی فایروال
 - امنیت UUID
+
+### 🌐 پیکربندی XHTTP (SplitHTTP)
+
+تونل از انتقال XHTTP (SplitHTTP) برای ارتباط استیل استفاده می‌کند. در اینجا معنای هر مقدار پیکربندی آمده است:
+
+#### **تنظیمات اصلی:**
+- **`path`**: `/assets` - مسیر HTTP استفاده شده برای ارتباط تونل (مخفی شده به عنوان درخواست‌های asset)
+- **`mode`**: `auto` - انتخاب حالت خودکار برای عملکرد بهینه
+
+#### **تنظیم عملکرد:**
+- **`scMaxEachPostBytes`**: `1000000` (1MB) - حداکثر بایت در هر درخواست HTTP POST
+- **`scMaxConcurrentPosts`**: `6` - حداکثر درخواست‌های HTTP POST همزمان
+- **`scMinPostsIntervalMs`**: `25` - حداقل فاصله بین درخواست‌های POST (25ms)
+
+#### **ویژگی‌های استیل:**
+- **`noSSEHeader`**: `false` - شامل کردن هدرهای Server-Sent Events (قانونی‌تر به نظر می‌رسد)
+- **`noGRPCHeader`**: `true` - حذف هدرهای gRPC (کاهش تشخیص)
+- **`xPaddingBytes`**: `200` - بایت‌های padding تصادفی برای تغییر اندازه بسته‌ها
+
+#### **مدیریت اتصال:**
+- **`keepaliveperiod`**: `60` - دوره keep-alive در ثانیه برای اتصالات HTTP
+
+#### **چرا این مقادیر مهم هستند:**
+- **استیل**: الگوهای ترافیک HTTP قانونی را تقلید می‌کند
+- **عملکرد**: برای تونل‌زنی با توان بالا بهینه شده
+- **اجتناب از تشخیص**: اندازه بسته‌ها و زمان‌بندی را تغییر می‌دهد تا از تشخیص DPI اجتناب کند
+- **قابلیت اطمینان**: اتصالات پایدار را با تنظیمات keep-alive مناسب حفظ می‌کند
+
+### 🔐 پیکربندی پروتکل Reality
+
+تونل از پروتکل Reality برای امنیت و استیل پیشرفته استفاده می‌کند. در اینجا معنای هر تنظیم Reality آمده است:
+
+#### **تنظیمات اصلی Reality:**
+- **`serverName`**: `www.accounts.accesscontrol.windows.net` - SNI (Server Name Indication) برای TLS handshake
+- **`publicKey`**: کلید عمومی X25519 تولید شده برای اتصالات خروجی سرور A
+- **`privateKey`**: کلید خصوصی X25519 تولید شده برای اتصالات ورودی سرور B
+- **`shortIds`**: آرایه‌ای از 20 شناسه کوتاه مختلف (هر کدام 16 کاراکتر) برای تمایز کلاینت
+
+#### **تنظیمات پیشرفته Reality:**
+- **`fingerprint`**: `chrome` - اثر انگشت TLS برای تقلید از مرورگر Chrome
+- **`spiderX`**: `/` - مسیر برای Reality spider (فقط سرور A)
+- **`show`**: `false` - نمایش ندادن Reality handshake (فقط سرور B)
+- **`dest`**: `www.microsoft.com:443` - مقصد برای Reality handshake (فقط سرور B)
+- **`serverNames`**: آرایه‌ای شامل نام سرور برای اعتبارسنجی
+
+#### **مزایای امنیتی:**
+- **بدون نیاز به گواهی**: Reality نیازی به گواهی‌های SSL واقعی ندارد
+- **Perfect Forward Secrecy**: هر اتصال از کلیدهای منحصر به فرد استفاده می‌کند
+- **مقاومت در برابر DPI**: تشخیص آن سخت‌تر از تونل‌های TLS سنتی است
+- **تقلید مرورگر**: به عنوان ترافیک قانونی مرورگر ظاهر می‌شود
 
 ### 📊 ابزارهای مدیریت
 
