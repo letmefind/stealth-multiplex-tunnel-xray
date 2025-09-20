@@ -222,12 +222,7 @@ install_server_a() {
     print_section "Server A Configuration"
     
     # Get configuration from user
-    print_info "Please provide the following configuration details:"
-    echo
-    print_info "You need to provide:"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Server B IP address (destination server)"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Tunnel port (VLESS connection port)"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Reality server name (SNI)"
+    print_info "I will ask you for each configuration detail one by one."
     echo
     
     # Ensure we can read input
@@ -236,22 +231,43 @@ install_server_a() {
         exit 1
     fi
     
-    # Server B IP
-    SERVER_B_IP=$(get_input "Server B IP address" "91.98.86.167")
+    # Question 1: Server B IP
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the IP address of Server B (destination server)?"
+    echo -e "${DIM}This is the server where your tunneled traffic will be sent.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address ${DIM}[91.98.86.167]${NC}: \c"
+    read SERVER_B_IP
+    SERVER_B_IP="${SERVER_B_IP:-91.98.86.167}"
+    
     while ! validate_ip "$SERVER_B_IP"; do
-        print_error "Invalid IP address format"
-        SERVER_B_IP=$(get_input "Server B IP address" "91.98.86.167")
+        print_error "Invalid IP address format. Please enter a valid IP like 192.168.1.100"
+        echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address ${DIM}[91.98.86.167]${NC}: \c"
+        read SERVER_B_IP
+        SERVER_B_IP="${SERVER_B_IP:-91.98.86.167}"
     done
+    print_success "Server B IP: ${CYAN}${SERVER_B_IP}${NC}"
     
-    # Tunnel port
-    TUNNEL_PORT=$(get_input "Tunnel port (VLESS connection port)" "8081")
+    # Question 2: Tunnel Port
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What port should be used for the VLESS tunnel connection?"
+    echo -e "${DIM}This is the port that Server A will connect to on Server B.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter tunnel port ${DIM}[8081]${NC}: \c"
+    read TUNNEL_PORT
+    TUNNEL_PORT="${TUNNEL_PORT:-8081}"
+    
     while ! validate_port "$TUNNEL_PORT"; do
-        print_error "Invalid port number"
-        TUNNEL_PORT=$(get_input "Tunnel port (VLESS connection port)" "8081")
+        print_error "Invalid port number. Please enter a port between 1-65535"
+        echo -e "${CYAN}${ARROW}${NC} Enter tunnel port ${DIM}[8081]${NC}: \c"
+        read TUNNEL_PORT
+        TUNNEL_PORT="${TUNNEL_PORT:-8081}"
     done
+    print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Server name for Reality
-    SERVER_NAME=$(get_input "Reality server name (SNI)" "www.accounts.accesscontrol.windows.net")
+    # Question 3: Reality Server Name
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What server name should be used for Reality protocol (SNI)?"
+    echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+    read SERVER_NAME
+    SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+    print_success "Reality Server Name: ${CYAN}${SERVER_NAME}${NC}"
     
     # Generate keys
     generate_reality_keys
@@ -441,18 +457,9 @@ EOF
 install_server_b() {
     print_section "Server B Configuration"
     
-    print_info "Please provide the following configuration details:"
+    print_info "I will ask you for each configuration detail one by one."
     echo
-    print_warning "You need the details from Server A installation:"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} UUID"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Private Key"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Short ID"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Server Name"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Tunnel Port"
-    echo
-    print_info "Plus additional Server B configuration:"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Target port to tunnel (e.g., 8443 for XMPlus)"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Domain name for nginx"
+    print_warning "You need the details from Server A installation first!"
     echo
     
     # Ensure we can read input
@@ -461,50 +468,88 @@ install_server_b() {
         exit 1
     fi
     
-    # UUID from Server A
-    UUID=$(get_input "UUID from Server A")
+    # Question 1: UUID from Server A
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the UUID from Server A installation?"
+    echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter UUID: \c"
+    read UUID
     if [ -z "$UUID" ]; then
-        print_error "UUID is required"
+        print_error "UUID is required. Please enter the UUID from Server A."
         exit 1
     fi
+    print_success "UUID: ${CYAN}${UUID}${NC}"
     
-    # Private Key from Server A
-    PRIVATE_KEY=$(get_input "Private Key from Server A")
+    # Question 2: Private Key from Server A
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is the Private Key from Server A installation?"
+    echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
+    read PRIVATE_KEY
     if [ -z "$PRIVATE_KEY" ]; then
-        print_error "Private Key is required"
+        print_error "Private Key is required. Please enter the Private Key from Server A."
         exit 1
     fi
+    print_success "Private Key: ${CYAN}${PRIVATE_KEY}${NC}"
     
-    # Short ID from Server A
-    SHORT_ID=$(get_input "Short ID from Server A")
+    # Question 3: Short ID from Server A
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Short ID from Server A installation?"
+    echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Short ID: \c"
+    read SHORT_ID
     if [ -z "$SHORT_ID" ]; then
-        print_error "Short ID is required"
+        print_error "Short ID is required. Please enter the Short ID from Server A."
         exit 1
     fi
+    print_success "Short ID: ${CYAN}${SHORT_ID}${NC}"
     
-    # Server Name from Server A
-    SERVER_NAME=$(get_input "Server Name from Server A" "www.accounts.accesscontrol.windows.net")
+    # Question 4: Server Name from Server A
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What is the Server Name from Server A installation?"
+    echo -e "${DIM}This is the Reality server name (SNI) you used on Server A.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+    read SERVER_NAME
+    SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+    print_success "Server Name: ${CYAN}${SERVER_NAME}${NC}"
     
-    # Tunnel port from Server A
-    TUNNEL_PORT=$(get_input "Tunnel Port from Server A" "8081")
+    # Question 5: Tunnel Port from Server A
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What is the Tunnel Port from Server A installation?"
+    echo -e "${DIM}This is the port you used for VLESS connection on Server A.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8081]${NC}: \c"
+    read TUNNEL_PORT
+    TUNNEL_PORT="${TUNNEL_PORT:-8081}"
+    
     while ! validate_port "$TUNNEL_PORT"; do
-        print_error "Invalid port number"
-        TUNNEL_PORT=$(get_input "Tunnel Port from Server A" "8081")
+        print_error "Invalid port number. Please enter a port between 1-65535"
+        echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8081]${NC}: \c"
+        read TUNNEL_PORT
+        TUNNEL_PORT="${TUNNEL_PORT:-8081}"
     done
+    print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Target port (the port you want to tunnel)
-    TARGET_PORT=$(get_input "Target port to tunnel (e.g., 8443 for XMPlus)" "8443")
+    # Question 6: Target Port
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What port do you want to tunnel to your local service?"
+    echo -e "${DIM}This is the port of your local service (e.g., 8443 for XMPlus).${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
+    read TARGET_PORT
+    TARGET_PORT="${TARGET_PORT:-8443}"
+    
     while ! validate_port "$TARGET_PORT" || [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; do
         if [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; then
             print_error "Target port cannot be 80 or 443 (use nginx for these)"
         else
-            print_error "Invalid port number"
+            print_error "Invalid port number. Please enter a port between 1-65535"
         fi
-        TARGET_PORT=$(get_input "Target port to tunnel (e.g., 8443 for XMPlus)" "8443")
+        echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
+        read TARGET_PORT
+        TARGET_PORT="${TARGET_PORT:-8443}"
     done
+    print_success "Target Port: ${CYAN}${TARGET_PORT}${NC}"
     
-    # Domain for nginx
-    DOMAIN=$(get_input "Domain name for nginx" "test.bale.cyou")
+    # Question 7: Domain for nginx
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What domain name should be used for the nginx decoy site?"
+    echo -e "${DIM}This is used for the fake website that hides the tunnel.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter domain name ${DIM}[test.bale.cyou]${NC}: \c"
+    read DOMAIN
+    DOMAIN="${DOMAIN:-test.bale.cyou}"
+    print_success "Domain: ${CYAN}${DOMAIN}${NC}"
     
     print_section_end
     
