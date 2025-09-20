@@ -6,33 +6,34 @@
   },
   "inbounds": [
     {
-      "tag": "vless-in",
-      "listen": "127.0.0.1",
-      "port": 18081,
+      "tag": "tunnel-in",
+      "listen": "0.0.0.0",
+      "port": {{TUNNEL_PORT}},
       "protocol": "vless",
       "settings": {
         "clients": [
-          {
-            "id": "12345678-1234-1234-1234-123456789abc",
-            "flow": ""
-          }
+          { "id": "{{UUID}}" }
         ],
         "decryption": "none"
       },
       "streamSettings": {
         "network": "splithttp",
-        "security": "none",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["{{SERVER_NAME}}"],
+          "privateKey": "{{PRIVATE_KEY}}",
+          "shortIds": ["{{SHORT_ID}}"]
+        },
         "splithttpSettings": {
-          "transport": "splithttp",
-          "host": "cdn.example.com",
           "path": "/assets",
-          "acceptProxyProtocol": false,
           "scMaxEachPostBytes": 1000000,
           "scMaxConcurrentPosts": 6,
           "scMinPostsIntervalMs": 25,
           "noSSEHeader": false,
-          "xPaddingBytes": 200,
           "noGRPCHeader": true,
+          "xPaddingBytes": 200,
           "keepaliveperiod": 60,
           "mode": "auto"
         }
@@ -40,20 +41,15 @@
     }
   ],
   "outbounds": [
-    {
-      "tag": "portal-out",
-      "protocol": "freedom",
-      "settings": {}
-    }
+    { "tag": "to-nginx-80",  "protocol": "freedom", "settings": { "redirect": "127.0.0.1:80"  } },
+    { "tag": "to-nginx-443", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:443" } },
+    { "tag": "to-xmplus",    "protocol": "freedom", "settings": { "redirect": "127.0.0.1:{{TARGET_PORT}}" } }
   ],
   "routing": {
-    "domainStrategy": "AsIs",
     "rules": [
-      {
-        "type": "field",
-        "inboundTag": ["vless-in"],
-        "outboundTag": "portal-out"
-      }
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "80",   "outboundTag": "to-nginx-80"  },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "443",  "outboundTag": "to-nginx-443" },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "8080,{{TARGET_PORT}},8082,9090", "outboundTag": "to-xmplus" }
     ]
   }
 }

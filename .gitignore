@@ -1,4 +1,4 @@
-# Stealth Multiplex Tunnel Xray - Git Ignore
+image.png# Stealth Multiplex Tunnel Xray - Git Ignore
 
 # Environment files
 .env
@@ -8,7 +8,9 @@
 # Backup files
 *.backup
 *.bak
-backup_*
+backup_*/
+backup_*.tar.gz
+backup_*.zip
 
 # Log files
 *.log
