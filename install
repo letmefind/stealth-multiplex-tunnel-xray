@@ -224,6 +224,11 @@ install_server_a() {
     # Get configuration from user
     print_info "Please provide the following configuration details:"
     echo
+    print_info "You need to provide:"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Server B IP address (destination server)"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Tunnel port (VLESS connection port)"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Reality server name (SNI)"
+    echo
     
     # Ensure we can read input
     if ! [ -t 0 ]; then
@@ -444,6 +449,10 @@ install_server_b() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Short ID"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Server Name"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Tunnel Port"
+    echo
+    print_info "Plus additional Server B configuration:"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Target port to tunnel (e.g., 8443 for XMPlus)"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}•${NC} Domain name for nginx"
     echo
     
     # Ensure we can read input
