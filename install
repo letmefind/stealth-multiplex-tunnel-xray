@@ -152,14 +152,14 @@ generate_reality_keys() {
         KEYS=$(xray x25519 2>/dev/null)
         PUBLIC_KEY=$(echo "$KEYS" | grep "Public key:" | cut -d' ' -f3)
         PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
-        SHORT_ID=$(openssl rand -hex 16 2>/dev/null)
+        SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
         
         # Debug: Check if keys were parsed correctly
         if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
             print_warning "Failed to parse Reality keys, using default keys"
             PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
             PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-            SHORT_ID="db78ea236c7e33f5a1b2c3d4e5f6789012345678901234567890abcdef"
+            SHORT_ID="db78ea236c7e33f5"
         else
             print_success "Generated Reality keys successfully"
         fi
@@ -171,7 +171,7 @@ generate_reality_keys() {
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
         PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-        SHORT_ID="db78ea236c7e33f5a1b2c3d4e5f6789012345678901234567890abcdef"
+        SHORT_ID="db78ea236c7e33f5"
         
         print_success "Using default Reality keys"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
