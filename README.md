@@ -27,7 +27,14 @@ A production-ready, stealth tunnel solution supporting multiple protocols (VLESS
 git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
 
-# Run the interactive installer
+# For servers with limited internet (e.g., China):
+# First install Xray offline
+sudo bash install_xray_offline.sh
+
+# Then run the main installer
+sudo bash install
+
+# For servers with good internet connectivity:
 sudo bash install
 ```
 
@@ -156,6 +163,47 @@ The tunnel uses Reality protocol for enhanced security and stealth. Here's what 
 
 - **Port Management**: Add/remove ports dynamically
 - **Configuration Backup**: Automated backup/restore
+
+### 🌐 Offline Installation (China/Slow Networks)
+
+For servers with limited internet connectivity or in regions with restricted access to GitHub:
+
+#### **Method 1: Automated Offline Installation**
+```bash
+# Download and run the offline installer
+sudo bash install_xray_offline.sh
+
+# Then run the main installer
+sudo bash install
+```
+
+#### **Method 2: Manual Installation**
+If the automated method fails:
+
+1. **Download Xray manually:**
+   - Go to: https://github.com/XTLS/Xray-core/releases
+   - Download `Xray-linux-64.zip` (for x86_64) or appropriate architecture
+   - Transfer to your server via SCP/SFTP
+
+2. **Install manually:**
+   ```bash
+   # Extract and install
+   unzip Xray-linux-64.zip
+   sudo cp xray /usr/local/bin/
+   sudo chmod +x /usr/local/bin/xray
+   
+   # Create service
+   sudo cp install_xray_offline.sh /tmp/
+   sudo bash /tmp/install_xray_offline.sh
+   ```
+
+#### **Features of Offline Installer:**
+- ✅ **Multiple Mirrors**: Tries GitHub, ghproxy, mirror.ghproxy, fastgit
+- ✅ **Architecture Detection**: Supports x86_64, ARM64, ARM32
+- ✅ **Dependency Management**: Installs wget, curl, unzip automatically
+- ✅ **Service Setup**: Creates systemd service and directories
+- ✅ **Error Handling**: Comprehensive error messages and fallback options
+- ✅ **Testing**: Verifies installation and Reality key generation
 - **Status Monitoring**: Comprehensive health checks
 - **Log Analysis**: Structured logging and error tracking
 
@@ -334,6 +382,47 @@ stealth-multiplex-tunnel-xray/
 
 - **مدیریت پورت**: افزودن/حذف پورت‌ها به صورت پویا
 - **پشتیبان‌گیری پیکربندی**: پشتیبان‌گیری/بازیابی خودکار
+
+### 🌐 نصب آفلاین (چین/شبکه‌های کند)
+
+برای سرورهایی با اتصال اینترنت محدود یا در مناطق با دسترسی محدود به GitHub:
+
+#### **روش 1: نصب آفلاین خودکار**
+```bash
+# دانلود و اجرای نصب‌کننده آفلاین
+sudo bash install_xray_offline.sh
+
+# سپس اجرای نصب‌کننده اصلی
+sudo bash install
+```
+
+#### **روش 2: نصب دستی**
+اگر روش خودکار شکست بخورد:
+
+1. **دانلود دستی Xray:**
+   - برو به: https://github.com/XTLS/Xray-core/releases
+   - دانلود `Xray-linux-64.zip` (برای x86_64) یا معماری مناسب
+   - انتقال به سرور از طریق SCP/SFTP
+
+2. **نصب دستی:**
+   ```bash
+   # استخراج و نصب
+   unzip Xray-linux-64.zip
+   sudo cp xray /usr/local/bin/
+   sudo chmod +x /usr/local/bin/xray
+   
+   # ایجاد سرویس
+   sudo cp install_xray_offline.sh /tmp/
+   sudo bash /tmp/install_xray_offline.sh
+   ```
+
+#### **ویژگی‌های نصب‌کننده آفلاین:**
+- ✅ **چندین آینه**: GitHub، ghproxy، mirror.ghproxy، fastgit را امتحان می‌کند
+- ✅ **تشخیص معماری**: از x86_64، ARM64، ARM32 پشتیبانی می‌کند
+- ✅ **مدیریت وابستگی‌ها**: wget، curl، unzip را خودکار نصب می‌کند
+- ✅ **تنظیم سرویس**: سرویس systemd و دایرکتوری‌ها را ایجاد می‌کند
+- ✅ **مدیریت خطا**: پیام‌های خطای جامع و گزینه‌های جایگزین
+- ✅ **تست**: نصب و تولید کلید Reality را تأیید می‌کند
 - **نظارت وضعیت**: بررسی‌های سلامت جامع
 - **تحلیل لاگ**: ثبت‌سازی ساختاریافته و ردیابی خطا
 
