@@ -152,14 +152,14 @@ generate_reality_keys() {
         KEYS=$(xray x25519 2>/dev/null)
         PUBLIC_KEY=$(echo "$KEYS" | grep "Public key:" | cut -d' ' -f3)
         PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
-        SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
+        SHORT_ID=$(openssl rand -hex 16 2>/dev/null)
         
         # Debug: Check if keys were parsed correctly
         if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
             print_warning "Failed to parse Reality keys, using default keys"
             PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
             PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-            SHORT_ID="db78ea236c7e33f5"
+            SHORT_ID="db78ea236c7e33f5a1b2c3d4e5f6789012345678901234567890abcdef"
         else
             print_success "Generated Reality keys successfully"
         fi
@@ -171,7 +171,7 @@ generate_reality_keys() {
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
         PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-        SHORT_ID="db78ea236c7e33f5"
+        SHORT_ID="db78ea236c7e33f5a1b2c3d4e5f6789012345678901234567890abcdef"
         
         print_success "Using default Reality keys"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
@@ -251,15 +251,17 @@ install_server_a() {
     # Question 1: Server B IP
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the IP address of Server B (destination server)?"
     echo -e "${DIM}This is the server where your tunneled traffic will be sent.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address ${DIM}[91.98.86.167]${NC}: \c"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address: \c"
     read SERVER_B_IP
-    SERVER_B_IP="${SERVER_B_IP:-91.98.86.167}"
     
-    while ! validate_ip "$SERVER_B_IP"; do
-        print_error "Invalid IP address format. Please enter a valid IP like 192.168.1.100"
-        echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address ${DIM}[91.98.86.167]${NC}: \c"
+    while [ -z "$SERVER_B_IP" ] || ! validate_ip "$SERVER_B_IP"; do
+        if [ -z "$SERVER_B_IP" ]; then
+            print_error "Server B IP address is required. Please enter a valid IP address."
+        else
+            print_error "Invalid IP address format. Please enter a valid IP like 192.168.1.100"
+        fi
+        echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address: \c"
         read SERVER_B_IP
-        SERVER_B_IP="${SERVER_B_IP:-91.98.86.167}"
     done
     print_success "Server B IP: ${CYAN}${SERVER_B_IP}${NC}"
     
