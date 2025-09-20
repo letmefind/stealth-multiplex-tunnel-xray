@@ -153,18 +153,60 @@ generate_uuid() {
     fi
 }
 
+# Check Xray version
+check_xray_version() {
+    if command -v xray >/dev/null 2>&1; then
+        CURRENT_VERSION=$(xray version | head -1)
+        print_info "Current Xray version: ${CYAN}${CURRENT_VERSION}${NC}"
+        
+        # Check for latest version
+        if curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest >/dev/null 2>&1; then
+            LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+            if [ -n "$LATEST_VERSION" ]; then
+                print_info "Latest Xray version: ${CYAN}${LATEST_VERSION}${NC}"
+                if echo "$CURRENT_VERSION" | grep -q "$LATEST_VERSION"; then
+                    print_success "✅ You have the latest version"
+                else
+                    print_warning "⚠️  Update available: ${LATEST_VERSION}"
+                fi
+            fi
+        fi
+    fi
+}
+
 # Install Xray offline
 install_xray_offline() {
     print_info "Checking Xray installation options..."
     
+    # Get latest version information
+    LATEST_VERSION=""
+    if curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest >/dev/null 2>&1; then
+        LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+        if [ -n "$LATEST_VERSION" ]; then
+            print_info "Latest Xray version available: ${CYAN}${LATEST_VERSION}${NC}"
+        fi
+    fi
+    
     # Check if we have internet connectivity
     if curl -s --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-        print_info "Internet connection available, trying online installation..."
-        if bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install; then
-            print_success "Xray installed successfully via online method"
-            return 0
+        print_info "Internet connection available"
+        print_info "Installation methods:"
+        print_info "  ${GREEN}1. Online Installation${NC} - Uses official Xray installer (recommended)"
+        print_info "  ${YELLOW}2. Offline Installation${NC} - Downloads binary directly (for restricted networks)"
+        
+        if confirm "Do you want to try online installation first?"; then
+            print_info "Attempting online installation..."
+            if bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install; then
+                print_success "Xray installed successfully via online method"
+                if [ -n "$LATEST_VERSION" ]; then
+                    print_info "Installed version: ${CYAN}$(xray version | head -1)${NC}"
+                fi
+                return 0
+            else
+                print_warning "Online installation failed, trying offline method..."
+            fi
         else
-            print_warning "Online installation failed, trying offline method..."
+            print_info "Skipping online installation, using offline method..."
         fi
     else
         print_warning "No internet connection detected, using offline method..."
@@ -181,17 +223,27 @@ install_xray_offline() {
         armv7l) ARCH="arm32-v7a" ;;
         *) print_error "Unsupported architecture: $ARCH"; return 1 ;;
     esac
+    print_info "Detected architecture: ${CYAN}${ARCH}${NC}"
+    
+    # Use latest version if available, otherwise fallback to stable
+    if [ -n "$LATEST_VERSION" ]; then
+        XRAY_VERSION="$LATEST_VERSION"
+        print_info "Using latest version: ${CYAN}${XRAY_VERSION}${NC}"
+    else
+        XRAY_VERSION="v1.8.18"
+        print_warning "Using fallback version: ${CYAN}${XRAY_VERSION}${NC}"
+    fi
     
     # Create temporary directory
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
     
     # Download Xray binary (try multiple mirrors)
-    XRAY_VERSION="v1.8.18"
     DOWNLOAD_URLS=(
         "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${ARCH}.zip"
         "https://ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${ARCH}.zip"
         "https://mirror.ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${ARCH}.zip"
+        "https://download.fastgit.org/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${ARCH}.zip"
     )
     
     for url in "${DOWNLOAD_URLS[@]}"; do
@@ -262,7 +314,11 @@ EOF
         systemctl enable xray
         
         print_success "Xray installed successfully via offline method"
-        print_info "Xray version: $(/usr/local/bin/xray version | head -1)"
+        INSTALLED_VERSION=$(/usr/local/bin/xray version | head -1)
+        print_info "Installed version: ${CYAN}${INSTALLED_VERSION}${NC}"
+        if [ -n "$LATEST_VERSION" ] && [ "$XRAY_VERSION" = "$LATEST_VERSION" ]; then
+            print_success "✅ Latest version installed successfully"
+        fi
         
         cd /
         rm -rf "$TEMP_DIR"
@@ -460,6 +516,7 @@ install_server_a() {
         install_xray_offline
     else
         print_success "Xray is already installed"
+        check_xray_version
     fi
     print_section_end
     
@@ -735,6 +792,7 @@ install_server_b() {
         install_xray_offline
     else
         print_success "Xray is already installed"
+        check_xray_version
     fi
     
     if ! command -v nginx >/dev/null 2>&1; then

@@ -86,8 +86,23 @@ download_xray() {
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
     
-    # Xray version (latest stable)
-    XRAY_VERSION="v1.8.18"
+    # Get latest version information
+    LATEST_VERSION=""
+    if curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest >/dev/null 2>&1; then
+        LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+        if [ -n "$LATEST_VERSION" ]; then
+            print_info "Latest Xray version available: ${CYAN}${LATEST_VERSION}${NC}"
+        fi
+    fi
+    
+    # Use latest version if available, otherwise fallback to stable
+    if [ -n "$LATEST_VERSION" ]; then
+        XRAY_VERSION="$LATEST_VERSION"
+        print_info "Using latest version: ${CYAN}${XRAY_VERSION}${NC}"
+    else
+        XRAY_VERSION="v1.8.18"
+        print_warning "Using fallback version: ${CYAN}${XRAY_VERSION}${NC}"
+    fi
     
     # Multiple download mirrors for better reliability
     DOWNLOAD_URLS=(
@@ -170,7 +185,11 @@ EOF
         systemctl enable xray
         
         print_success "Xray installed successfully"
-        print_info "Xray version: $(/usr/local/bin/xray version | head -1)"
+        INSTALLED_VERSION=$(/usr/local/bin/xray version | head -1)
+        print_info "Installed version: ${CYAN}${INSTALLED_VERSION}${NC}"
+        if [ -n "$LATEST_VERSION" ] && [ "$XRAY_VERSION" = "$LATEST_VERSION" ]; then
+            print_success "✅ Latest version installed successfully"
+        fi
         
         cd /
         rm -rf "$TEMP_DIR"

@@ -197,13 +197,16 @@ If the automated method fails:
    sudo bash /tmp/install_xray_offline.sh
    ```
 
-#### **Features of Offline Installer:**
-- ✅ **Multiple Mirrors**: Tries GitHub, ghproxy, mirror.ghproxy, fastgit
+#### **Features of Enhanced Installation:**
+- ✅ **Version Detection**: Shows latest available version
+- ✅ **Dual Installation Methods**: Online (recommended) + Offline (fallback)
+- ✅ **Multiple Mirrors**: GitHub, ghproxy, mirror.ghproxy, fastgit
 - ✅ **Architecture Detection**: Supports x86_64, ARM64, ARM32
 - ✅ **Dependency Management**: Installs wget, curl, unzip automatically
 - ✅ **Service Setup**: Creates systemd service and directories
 - ✅ **Error Handling**: Comprehensive error messages and fallback options
-- ✅ **Testing**: Verifies installation and Reality key generation
+- ✅ **Version Verification**: Confirms latest version installation
+- ✅ **Update Notifications**: Shows when updates are available
 - **Status Monitoring**: Comprehensive health checks
 - **Log Analysis**: Structured logging and error tracking
 
@@ -416,13 +419,16 @@ sudo bash install
    sudo bash /tmp/install_xray_offline.sh
    ```
 
-#### **ویژگی‌های نصب‌کننده آفلاین:**
-- ✅ **چندین آینه**: GitHub، ghproxy، mirror.ghproxy، fastgit را امتحان می‌کند
+#### **ویژگی‌های نصب پیشرفته:**
+- ✅ **تشخیص نسخه**: آخرین نسخه موجود را نمایش می‌دهد
+- ✅ **دو روش نصب**: آنلاین (توصیه شده) + آفلاین (پشتیبان)
+- ✅ **چندین آینه**: GitHub، ghproxy، mirror.ghproxy، fastgit
 - ✅ **تشخیص معماری**: از x86_64، ARM64، ARM32 پشتیبانی می‌کند
 - ✅ **مدیریت وابستگی‌ها**: wget، curl، unzip را خودکار نصب می‌کند
 - ✅ **تنظیم سرویس**: سرویس systemd و دایرکتوری‌ها را ایجاد می‌کند
 - ✅ **مدیریت خطا**: پیام‌های خطای جامع و گزینه‌های جایگزین
-- ✅ **تست**: نصب و تولید کلید Reality را تأیید می‌کند
+- ✅ **تأیید نسخه**: نصب آخرین نسخه را تأیید می‌کند
+- ✅ **اطلاع‌رسانی به‌روزرسانی**: زمانی که به‌روزرسانی موجود است نمایش می‌دهد
 - **نظارت وضعیت**: بررسی‌های سلامت جامع
 - **تحلیل لاگ**: ثبت‌سازی ساختاریافته و ردیابی خطا
 
