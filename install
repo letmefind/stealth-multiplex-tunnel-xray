@@ -167,11 +167,6 @@ generate_reality_keys() {
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
-        
-        # Debug: Show the actual values
-        echo "DEBUG: PUBLIC_KEY='$PUBLIC_KEY'" >&2
-        echo "DEBUG: PRIVATE_KEY='$PRIVATE_KEY'" >&2
-        echo "DEBUG: SHORT_ID='$SHORT_ID'" >&2
     else
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
@@ -182,22 +177,12 @@ generate_reality_keys() {
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
-        
-        # Debug: Show the actual values
-        echo "DEBUG: PUBLIC_KEY='$PUBLIC_KEY'" >&2
-        echo "DEBUG: PRIVATE_KEY='$PRIVATE_KEY'" >&2
-        echo "DEBUG: SHORT_ID='$SHORT_ID'" >&2
     fi
     
     # Export the variables so they're available globally
     export PUBLIC_KEY
     export PRIVATE_KEY
     export SHORT_ID
-    
-    # Debug: Verify export worked
-    echo "DEBUG: After export - PUBLIC_KEY='$PUBLIC_KEY'" >&2
-    echo "DEBUG: After export - PRIVATE_KEY='$PRIVATE_KEY'" >&2
-    echo "DEBUG: After export - SHORT_ID='$SHORT_ID'" >&2
 }
 
 # Function to validate port
@@ -316,11 +301,6 @@ install_server_a() {
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "UUID" "$UUID"
-    
-    # Debug: Show the actual values before displaying
-    echo "DEBUG: Before summary - PUBLIC_KEY='$PUBLIC_KEY'" >&2
-    echo "DEBUG: Before summary - PRIVATE_KEY='$PRIVATE_KEY'" >&2
-    echo "DEBUG: Before summary - SHORT_ID='$SHORT_ID'" >&2
     
     print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
     print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
@@ -523,23 +503,23 @@ install_server_b() {
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is the Private Key from Server A installation?"
     echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
-    read PRIVATE_KEY
-    if [ -z "$PRIVATE_KEY" ]; then
+    read SERVER_B_PRIVATE_KEY
+    if [ -z "$SERVER_B_PRIVATE_KEY" ]; then
         print_error "Private Key is required. Please enter the Private Key from Server A."
         exit 1
     fi
-    print_success "Private Key: ${CYAN}${PRIVATE_KEY}${NC}"
+    print_success "Private Key: ${CYAN}${SERVER_B_PRIVATE_KEY}${NC}"
     
     # Question 3: Short ID from Server A
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Short ID from Server A installation?"
     echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter Short ID: \c"
-    read SHORT_ID
-    if [ -z "$SHORT_ID" ]; then
+    read SERVER_B_SHORT_ID
+    if [ -z "$SERVER_B_SHORT_ID" ]; then
         print_error "Short ID is required. Please enter the Short ID from Server A."
         exit 1
     fi
-    print_success "Short ID: ${CYAN}${SHORT_ID}${NC}"
+    print_success "Short ID: ${CYAN}${SERVER_B_SHORT_ID}${NC}"
     
     # Question 4: Server Name from Server A
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What is the Server Name from Server A installation?"
@@ -596,8 +576,8 @@ install_server_b() {
     # Show configuration summary
     print_section "Configuration Summary"
     print_config_item "UUID" "$UUID"
-    print_config_item "Private Key" "$PRIVATE_KEY"
-    print_config_item "Short ID" "$SHORT_ID"
+    print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
+    print_config_item "Short ID" "$SERVER_B_SHORT_ID"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Target Port" "$TARGET_PORT"
@@ -666,8 +646,8 @@ install_server_b() {
           "show": false,
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
-          "privateKey": "$PRIVATE_KEY",
-          "shortIds": ["$SHORT_ID"]
+          "privateKey": "$SERVER_B_PRIVATE_KEY",
+          "shortIds": ["$SERVER_B_SHORT_ID"]
         },
         "splithttpSettings": {
           "path": "/assets",
