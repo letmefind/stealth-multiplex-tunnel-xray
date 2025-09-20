@@ -166,6 +166,11 @@ generate_reality_keys() {
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
     fi
+    
+    # Export the variables so they're available globally
+    export PUBLIC_KEY
+    export PRIVATE_KEY
+    export SHORT_ID
 }
 
 # Function to validate port
@@ -284,9 +289,9 @@ install_server_a() {
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "UUID" "$UUID"
-    print_config_item "Public Key" "$PUBLIC_KEY"
-    print_config_item "Private Key" "$PRIVATE_KEY"
-    print_config_item "Short ID" "$SHORT_ID"
+    print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
+    print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
+    print_config_item "Short ID (for both servers)" "$SHORT_ID"
     print_section_end
     
     # Confirm installation
@@ -446,10 +451,12 @@ EOF
     echo
     print_warning "IMPORTANT: Save these details for Server B installation:"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server B):${NC} ${CYAN}${PRIVATE_KEY}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID (for both servers):${NC} ${CYAN}${SHORT_ID}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
+    echo
+    print_info "Note: Public Key is already configured in Server A, Private Key goes to Server B"
     print_section_end
 }
 
