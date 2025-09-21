@@ -48,10 +48,9 @@ sudo bash install
 ```
 stealth-multiplex-tunnel-xray/
 ├── install                       # 🚀 Main interactive installer
-├── README.md                     # 📖 Comprehensive documentation
-├── README_FA.md                  # 📖 Persian documentation
+├── install_xray_offline.sh      # 🌐 Offline Xray installer (China/slow networks)
+├── README.md                     # 📖 Comprehensive documentation (English + Persian)
 ├── LICENSE                       # 📄 License file
-├── CONFIGURATION_EXAMPLES.md     # 📋 Configuration examples
 ├── DESCRIPTION.md                # 📝 Project description
 ├── PROJECT_SUMMARY.md            # 📊 Detailed project summary
 ├── scripts/
@@ -219,6 +218,76 @@ If the automated method fails:
 - [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - Configuration examples
 - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Project overview
 
+### 🔧 Troubleshooting
+
+#### **Common Issues:**
+
+**1. Nginx Port Conflict (Server B)**
+```
+nginx: [emerg] duplicate default server for 0.0.0.0:80
+```
+**Solution:** The script automatically handles this by:
+- Detecting existing Nginx configurations
+- Creating backups before changes
+- Disabling conflicting default sites
+- Testing configuration before restart
+
+**2. Xray Installation Failed (China/Slow Networks)**
+```
+Failed to download Xray binary from all mirrors
+```
+**Solution:** Use offline installation:
+```bash
+sudo bash install_xray_offline.sh
+sudo bash install
+```
+
+**3. Reality Key Generation Failed**
+```
+Failed to parse Reality keys, using default keys
+```
+**Solution:** Ensure Xray is properly installed:
+```bash
+xray version  # Should show version
+xray x25519  # Should generate keys
+```
+
+**4. Service Won't Start**
+```bash
+# Check service status
+systemctl status xray-a  # or xray-b
+systemctl status nginx
+
+# Check logs
+journalctl -u xray-a -f
+journalctl -u nginx -f
+```
+
+#### **Recovery Options:**
+
+**Restore Nginx Configuration:**
+```bash
+# List available backups
+ls /etc/nginx/backup-*
+
+# Restore from backup
+sudo cp /etc/nginx/backup-*/default /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+```
+
+**Check Installation Status:**
+```bash
+# Verify Xray installation
+which xray
+xray version
+
+# Verify Nginx configuration
+nginx -t
+
+# Check service status
+systemctl is-active xray-a xray-b nginx
+```
+
 ### ⚠️ Disclaimer
 
 This project is provided for educational and legitimate use cases only. Users are responsible for compliance with local laws and regulations.
@@ -259,7 +328,14 @@ For issues and questions, please open an issue on GitHub.
 git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
 
-# اجرای نصب‌کننده تعاملی
+# برای سرورهایی با اتصال اینترنت محدود (مثل چین):
+# ابتدا Xray را آفلاین نصب کنید
+sudo bash install_xray_offline.sh
+
+# سپس نصب‌کننده اصلی را اجرا کنید
+sudo bash install
+
+# برای سرورهایی با اتصال اینترنت خوب:
 sudo bash install
 ```
 
@@ -273,10 +349,9 @@ sudo bash install
 ```
 stealth-multiplex-tunnel-xray/
 ├── install                       # 🚀 نصب‌کننده تعاملی اصلی
-├── README.md                     # 📖 مستندات جامع
-├── README_FA.md                  # 📖 مستندات فارسی
+├── install_xray_offline.sh      # 🌐 نصب‌کننده آفلاین Xray (چین/شبکه‌های کند)
+├── README.md                     # 📖 مستندات جامع (انگلیسی + فارسی)
 ├── LICENSE                       # 📄 فایل مجوز
-├── CONFIGURATION_EXAMPLES.md     # 📋 نمونه‌های پیکربندی
 ├── DESCRIPTION.md                # 📝 توضیحات پروژه
 ├── PROJECT_SUMMARY.md            # 📊 خلاصه تفصیلی پروژه
 ├── scripts/
@@ -443,6 +518,76 @@ sudo bash install
 - [README.md](README.md) - راهنمای نصب کامل
 - [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - نمونه‌های پیکربندی
 - [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - نمای کلی پروژه
+
+### 🔧 عیب‌یابی
+
+#### **مشکلات رایج:**
+
+**1. تعارض پورت Nginx (سرور B)**
+```
+nginx: [emerg] duplicate default server for 0.0.0.0:80
+```
+**راه‌حل:** اسکریپت به صورت خودکار این مشکل را حل می‌کند:
+- تشخیص پیکربندی‌های موجود Nginx
+- ایجاد پشتیبان قبل از تغییرات
+- غیرفعال کردن سایت‌های پیش‌فرض متضاد
+- تست پیکربندی قبل از راه‌اندازی مجدد
+
+**2. نصب Xray ناموفق (چین/شبکه‌های کند)**
+```
+Failed to download Xray binary from all mirrors
+```
+**راه‌حل:** از نصب آفلاین استفاده کنید:
+```bash
+sudo bash install_xray_offline.sh
+sudo bash install
+```
+
+**3. تولید کلید Reality ناموفق**
+```
+Failed to parse Reality keys, using default keys
+```
+**راه‌حل:** اطمینان حاصل کنید که Xray به درستی نصب شده:
+```bash
+xray version  # باید نسخه را نشان دهد
+xray x25519  # باید کلیدها را تولید کند
+```
+
+**4. سرویس راه‌اندازی نمی‌شود**
+```bash
+# بررسی وضعیت سرویس
+systemctl status xray-a  # یا xray-b
+systemctl status nginx
+
+# بررسی لاگ‌ها
+journalctl -u xray-a -f
+journalctl -u nginx -f
+```
+
+#### **گزینه‌های بازیابی:**
+
+**بازیابی پیکربندی Nginx:**
+```bash
+# لیست پشتیبان‌های موجود
+ls /etc/nginx/backup-*
+
+# بازیابی از پشتیبان
+sudo cp /etc/nginx/backup-*/default /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+```
+
+**بررسی وضعیت نصب:**
+```bash
+# تأیید نصب Xray
+which xray
+xray version
+
+# تأیید پیکربندی Nginx
+nginx -t
+
+# بررسی وضعیت سرویس‌ها
+systemctl is-active xray-a xray-b nginx
+```
 
 ### ⚠️ سلب مسئولیت
 
