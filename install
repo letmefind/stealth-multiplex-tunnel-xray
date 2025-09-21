@@ -909,7 +909,7 @@ install_server_b() {
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortId": "$(echo "$SERVER_B_SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')"
+          "shortIds": [$SERVER_B_SHORT_IDS]
         },
         "splithttpSettings": {
           "path": "/assets",
