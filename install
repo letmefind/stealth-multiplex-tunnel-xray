@@ -153,6 +153,73 @@ generate_uuid() {
     fi
 }
 
+# Handle Nginx configuration conflicts
+handle_nginx_conflicts() {
+    print_info "Checking for Nginx configuration conflicts..."
+    
+    # Create backup directory
+    BACKUP_DIR="/etc/nginx/backup-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    
+    # Check if there are any existing default server configurations
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+        print_warning "Found existing default Nginx site"
+        print_info "Creating backup in: $BACKUP_DIR"
+        cp /etc/nginx/sites-enabled/default "$BACKUP_DIR/"
+        
+        if confirm "Do you want to disable the existing default site to avoid conflicts?"; then
+            rm -f /etc/nginx/sites-enabled/default
+            print_success "Default Nginx site disabled (backup created)"
+        else
+            print_warning "Keeping existing default site - this may cause conflicts"
+        fi
+    fi
+    
+    # Check for other conflicting configurations
+    CONFLICTING_CONFIGS=$(find /etc/nginx -name "*.conf" -exec grep -l "default_server" {} \; 2>/dev/null || true)
+    if [ -n "$CONFLICTING_CONFIGS" ]; then
+        print_warning "Found configurations with default_server directive:"
+        echo "$CONFLICTING_CONFIGS" | while read config; do
+            print_info "  - $config"
+            cp "$config" "$BACKUP_DIR/" 2>/dev/null || true
+        done
+        print_info "Backups created in: $BACKUP_DIR"
+        print_info "Our configuration will override these"
+    fi
+}
+
+# Restore Nginx configuration from backup
+restore_nginx_backup() {
+    print_info "Available Nginx backups:"
+    BACKUP_DIRS=$(find /etc/nginx -name "backup-*" -type d 2>/dev/null | sort -r)
+    if [ -z "$BACKUP_DIRS" ]; then
+        print_warning "No Nginx backups found"
+        return 1
+    fi
+    
+    echo "$BACKUP_DIRS" | nl
+    echo
+    echo -e "${CYAN}${ARROW}${NC} Enter backup number to restore ${DIM}[1]${NC}: \c"
+    read BACKUP_CHOICE
+    BACKUP_CHOICE="${BACKUP_CHOICE:-1}"
+    
+    BACKUP_DIR=$(echo "$BACKUP_DIRS" | sed -n "${BACKUP_CHOICE}p")
+    if [ -z "$BACKUP_DIR" ]; then
+        print_error "Invalid backup selection"
+        return 1
+    fi
+    
+    print_info "Restoring from: $BACKUP_DIR"
+    if [ -d "$BACKUP_DIR" ]; then
+        cp "$BACKUP_DIR"/* /etc/nginx/sites-enabled/ 2>/dev/null || true
+        print_success "Nginx configuration restored from backup"
+        return 0
+    else
+        print_error "Backup directory not found"
+        return 1
+    fi
+}
+
 # Check Xray version
 check_xray_version() {
     if command -v xray >/dev/null 2>&1; then
@@ -881,6 +948,23 @@ EOF
     
     # Generate Nginx configuration
     print_section "Setting Up Nginx"
+    
+    # Handle Nginx configuration conflicts
+    handle_nginx_conflicts
+    
+    # Disable default Nginx site to avoid conflicts
+    print_info "Disabling default Nginx site to avoid port conflicts..."
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+        rm -f /etc/nginx/sites-enabled/default
+        print_success "Default Nginx site disabled"
+    fi
+    
+    # Also disable default site in sites-available
+    if [ -f /etc/nginx/sites-available/default ]; then
+        rm -f /etc/nginx/sites-available/default
+        print_success "Default Nginx site removed from sites-available"
+    fi
+    
     cat > /etc/nginx/conf.d/stealth-$TUNNEL_PORT.conf << EOF
 # Public HTTP -> redirect to HTTPS
 server {
@@ -970,6 +1054,16 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
+    
+    # Test Nginx configuration before restarting
+    print_info "Testing Nginx configuration..."
+    if nginx -t; then
+        print_success "Nginx configuration test passed"
+    else
+        print_error "Nginx configuration test failed"
+        print_info "Please check the configuration manually"
+        exit 1
+    fi
     
     # Reload systemd and start services
     systemctl daemon-reload

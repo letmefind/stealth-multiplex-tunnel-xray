@@ -207,6 +207,9 @@ If the automated method fails:
 - ✅ **Error Handling**: Comprehensive error messages and fallback options
 - ✅ **Version Verification**: Confirms latest version installation
 - ✅ **Update Notifications**: Shows when updates are available
+- ✅ **Nginx Conflict Resolution**: Handles existing Nginx configurations
+- ✅ **Configuration Backup**: Automatic backup of existing configurations
+- ✅ **Configuration Testing**: Tests Nginx config before restart
 - **Status Monitoring**: Comprehensive health checks
 - **Log Analysis**: Structured logging and error tracking
 
@@ -429,6 +432,9 @@ sudo bash install
 - ✅ **مدیریت خطا**: پیام‌های خطای جامع و گزینه‌های جایگزین
 - ✅ **تأیید نسخه**: نصب آخرین نسخه را تأیید می‌کند
 - ✅ **اطلاع‌رسانی به‌روزرسانی**: زمانی که به‌روزرسانی موجود است نمایش می‌دهد
+- ✅ **حل تعارض Nginx**: مدیریت پیکربندی‌های موجود Nginx
+- ✅ **پشتیبان‌گیری پیکربندی**: پشتیبان‌گیری خودکار پیکربندی‌های موجود
+- ✅ **تست پیکربندی**: تست پیکربندی Nginx قبل از راه‌اندازی مجدد
 - **نظارت وضعیت**: بررسی‌های سلامت جامع
 - **تحلیل لاگ**: ثبت‌سازی ساختاریافته و ردیابی خطا
 
