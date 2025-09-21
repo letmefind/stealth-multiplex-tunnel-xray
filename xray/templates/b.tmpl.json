@@ -24,7 +24,7 @@
           "dest": "www.microsoft.com:443",
           "serverNames": ["{{SERVER_NAME}}"],
           "privateKey": "{{PRIVATE_KEY}}",
-          "shortIds": ["{{SHORT_ID}}"]
+          "shortId": "{{SHORT_ID}}"
         },
         "splithttpSettings": {
           "path": "/assets",

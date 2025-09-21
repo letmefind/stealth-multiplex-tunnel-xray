@@ -650,7 +650,7 @@ install_server_a() {
         "realitySettings": {
           "serverName": "$SERVER_NAME",
           "publicKey": "$PUBLIC_KEY",
-          "shortId": "$(echo "$SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')",
+          "shortIds": [$SHORT_IDS],
           "fingerprint": "chrome",
           "spiderX": "/"
         },
@@ -909,7 +909,7 @@ install_server_b() {
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortIds": [$SERVER_B_SHORT_IDS]
+          "shortId": "$(echo "$SERVER_B_SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')"
         },
         "splithttpSettings": {
           "path": "/assets",
