@@ -416,6 +416,9 @@ generate_reality_keys() {
             fi
         done
         
+        # Debug: Show generated short IDs
+        echo "Generated short IDs: $SHORT_IDS" >&2
+        
         # Debug: Check if keys were parsed correctly
         if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
             print_warning "Failed to parse Reality keys, using default keys"
