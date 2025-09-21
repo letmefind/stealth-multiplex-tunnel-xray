@@ -339,10 +339,41 @@ install_xray_offline() {
     if command -v unzip >/dev/null 2>&1; then
         unzip -q xray.zip
     else
-        print_error "unzip command not found. Please install unzip first."
-        cd /
-        rm -rf "$TEMP_DIR"
-        return 1
+        print_warning "unzip command not found. Installing unzip..."
+        
+        # Detect package manager and install unzip
+        if command -v apt-get >/dev/null 2>&1; then
+            # Debian/Ubuntu
+            apt-get update -qq && apt-get install -y unzip
+        elif command -v yum >/dev/null 2>&1; then
+            # CentOS/RHEL
+            yum install -y unzip
+        elif command -v dnf >/dev/null 2>&1; then
+            # Fedora
+            dnf install -y unzip
+        elif command -v pacman >/dev/null 2>&1; then
+            # Arch Linux
+            pacman -S --noconfirm unzip
+        elif command -v zypper >/dev/null 2>&1; then
+            # openSUSE
+            zypper install -y unzip
+        else
+            print_error "Cannot install unzip automatically. Please install unzip manually and run the script again."
+            cd /
+            rm -rf "$TEMP_DIR"
+            return 1
+        fi
+        
+        # Try to extract again
+        if command -v unzip >/dev/null 2>&1; then
+            print_success "unzip installed successfully"
+            unzip -q xray.zip
+        else
+            print_error "Failed to install unzip. Please install unzip manually."
+            cd /
+            rm -rf "$TEMP_DIR"
+            return 1
+        fi
     fi
     
     # Install binary
