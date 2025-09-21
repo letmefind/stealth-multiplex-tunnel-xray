@@ -424,7 +424,16 @@ generate_reality_keys() {
             print_warning "Failed to parse Reality keys, using default keys"
             PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
             PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-            SHORT_IDS="\"db78ea236c7e33f5\", \"a1b2c3d4e5f67890\", \"1234567890abcdef\", \"fedcba0987654321\", \"1111222233334444\", \"5555666677778888\", \"9999aaaabbbbcccc\", \"ddddeeeeffff0000\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\", \"02468ace13579bdf\", \"fdb97531eca86420\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\""
+            # Generate 20 unique short IDs for fallback
+            SHORT_IDS=""
+            for i in {1..20}; do
+                SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
+                if [ $i -eq 1 ]; then
+                    SHORT_IDS="\"$SHORT_ID\""
+                else
+                    SHORT_IDS="$SHORT_IDS, \"$SHORT_ID\""
+                fi
+            done
         else
             print_success "Generated Reality keys successfully"
         fi
@@ -436,7 +445,16 @@ generate_reality_keys() {
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
         PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-        SHORT_IDS="\"db78ea236c7e33f5\", \"a1b2c3d4e5f67890\", \"1234567890abcdef\", \"fedcba0987654321\", \"1111222233334444\", \"5555666677778888\", \"9999aaaabbbbcccc\", \"ddddeeeeffff0000\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\", \"02468ace13579bdf\", \"fdb97531eca86420\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\""
+        # Generate 20 unique short IDs for fallback
+        SHORT_IDS=""
+        for i in {1..20}; do
+            SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
+            if [ $i -eq 1 ]; then
+                SHORT_IDS="\"$SHORT_ID\""
+            else
+                SHORT_IDS="$SHORT_IDS, \"$SHORT_ID\""
+            fi
+        done
         
         print_success "Using default Reality keys"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
