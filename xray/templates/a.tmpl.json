@@ -55,7 +55,7 @@
         "realitySettings": {
           "serverName": "{{SERVER_NAME}}",
           "publicKey": "{{PUBLIC_KEY}}",
-          "shortIds": ["{{SHORT_ID}}"],
+          "shortId": "{{SHORT_ID}}",
           "fingerprint": "chrome",
           "spiderX": "/"
         },

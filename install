@@ -653,7 +653,7 @@ install_server_a() {
         "realitySettings": {
           "serverName": "$SERVER_NAME",
           "publicKey": "$PUBLIC_KEY",
-          "shortIds": [$SHORT_IDS],
+          "shortId": "$(echo "$SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')",
           "fingerprint": "chrome",
           "spiderX": "/"
         },
