@@ -19,6 +19,7 @@ A production-ready, stealth tunnel solution supporting multiple protocols (VLESS
 - **Stealth Features**: Decoy sites, hidden tunnels, Chrome fingerprinting
 - **Enhanced Reality**: Multiple short IDs, custom destinations
 - **XHTTP Support**: Complete XHTTP configuration with socket settings
+- **Multi-Hop Support**: Optional Server C for extended routing (A→B→C)
 
 ### 📋 Quick Start
 
@@ -41,7 +42,12 @@ sudo bash install
 ### 🏗️ Architecture
 
 - **Server A (Entry)**: Accepts connections on multiple ports and forwards them through a stealth tunnel
-- **Server B (Receiver)**: Receives tunneled traffic behind Nginx with TLS termination and decoy site
+- **Server B (Intermediate)**: Receives tunneled traffic from Server A and can forward to Server C or route to local services
+- **Server C (Final Destination)**: Optional final destination that receives traffic from Server B and routes to local services
+
+**Routing Modes:**
+- **Direct Routing**: `Server A → Server B` (routes to local services)
+- **Multi-Hop Routing**: `Server A → Server B → Server C` (optional intermediate hop)
 
 ### 📁 Project Structure
 
@@ -61,10 +67,13 @@ stealth-multiplex-tunnel-xray/
 │   ├── status.sh               # 🔧 Status monitoring utility
 │   ├── troubleshoot.sh         # 🔧 Comprehensive troubleshooting script
 │   ├── quick_fix.sh            # 🔧 Quick fix for common issues
-│   └── resolve_xray_conflict.sh # 🔧 Xray conflict resolver
+│   ├── resolve_xray_conflict.sh # 🔧 Xray conflict resolver
+│   ├── validate_and_fix_config.sh # 🔧 Configuration validator and fixer
+│   └── fix_b_to_c_keys.sh      # 🔧 B->C connection key fixer
 ├── systemd/
 │   ├── xray-a.service          # ⚙️ Server A systemd service
-│   └── xray-b.service          # ⚙️ Server B systemd service
+│   ├── xray-b.service          # ⚙️ Server B systemd service
+│   └── xray-c.service          # ⚙️ Server C systemd service
 ├── nginx/
 │   └── stealth-8081.conf       # 🌐 Nginx configuration template
 └── xray/
@@ -76,9 +85,9 @@ stealth-multiplex-tunnel-xray/
 ### 🔧 Installation Process
 
 1. **Run Interactive Installer** - `sudo bash install`
-2. **Choose Server Type** - Server A (Tunnel) or Server B (Destination)
+2. **Choose Server Type** - Server A (Tunnel), Server B (Intermediate), or Server C (Final Destination)
 3. **Configure Settings** - Follow interactive prompts
-4. **Generate Keys** - Reality keys generated automatically
+4. **Generate Keys** - Reality keys generated automatically (separate keys for A->B and B->C)
 5. **Test connectivity** - Verify end-to-end functionality
 
 ### 🎯 Installation Options
@@ -87,6 +96,26 @@ stealth-multiplex-tunnel-xray/
 - **Auto-detect**: `sudo bash install auto`
 - **Server A**: `sudo bash install a`
 - **Server B**: `sudo bash install b`
+- **Server C**: `sudo bash install c`
+
+### 🔗 Multi-Hop Setup (A→B→C)
+
+For multi-hop tunneling:
+
+1. **Install Server A** - `sudo bash install a`
+   - Configure Server B IP and tunnel port
+   - Save the generated UUID, private key, and short IDs
+
+2. **Install Server B** - `sudo bash install b`
+   - Enter details from Server A
+   - When asked, choose to forward to Server C
+   - Enter Server C IP and tunnel port
+   - Save the NEW B->C UUID, private key, and short IDs (different from A->B!)
+
+3. **Install Server C** - `sudo bash install c`
+   - Enter B->C connection details from Server B
+   - Configure target port for local services
+   - Server C will route traffic to local services
 
 ### ✨ Interactive Installer Features
 
@@ -162,6 +191,8 @@ The tunnel uses Reality protocol for enhanced security and stealth. Here's what 
 
 - **Port Management**: Add/remove ports dynamically
 - **Configuration Backup**: Automated backup/restore
+- **Configuration Validation**: Validate and fix configuration issues
+- **Key Management**: Regenerate B->C connection keys if needed
 
 ### 🌐 Offline Installation (China/Slow Networks)
 
@@ -285,7 +316,20 @@ xray version
 nginx -t
 
 # Check service status
-systemctl is-active xray-a xray-b nginx
+systemctl is-active xray-a xray-b xray-c nginx
+```
+
+**5. B->C Connection Issues**
+```
+B->C connection uses same keys as A->B (WRONG!)
+```
+**Solution:** Use the validation and fix scripts:
+```bash
+# Validate configurations
+sudo bash scripts/validate_and_fix_config.sh
+
+# Fix B->C keys if needed
+sudo bash scripts/fix_b_to_c_keys.sh
 ```
 
 ### ⚠️ Disclaimer
