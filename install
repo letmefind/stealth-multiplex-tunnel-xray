@@ -531,8 +531,9 @@ show_server_menu() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Choose your server type:${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}Server A (Tunnel Server)${NC} ${DIM}- Receives traffic and forwards to Server B${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Server B (Destination Server)${NC} ${DIM}- Receives tunneled traffic and routes to services${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Auto-detect${NC} ${DIM}- Automatically detect server type${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Server B (Intermediate Server)${NC} ${DIM}- Receives from A, forwards to C or local services${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Server C (Final Destination)${NC} ${DIM}- Receives from B, routes to local services${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}Auto-detect${NC} ${DIM}- Automatically detect server type${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     print_section_end
 }
@@ -878,13 +879,88 @@ install_server_b() {
     done
     print_success "Target Port: ${CYAN}${TARGET_PORT}${NC}"
     
-    # Question 7: Domain for nginx
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What domain name should be used for the nginx decoy site?"
-    echo -e "${DIM}This is used for the fake website that hides the tunnel.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter domain name ${DIM}[test.bale.cyou]${NC}: \c"
-    read DOMAIN
-    DOMAIN="${DOMAIN:-test.bale.cyou}"
-    print_success "Domain: ${CYAN}${DOMAIN}${NC}"
+    # Question 7: Check if forwarding to Server C
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} Do you want to forward traffic to Server C (optional final destination)?"
+    echo -e "${DIM}If yes, Server B will act as a relay and forward all traffic to Server C.${NC}"
+    echo -e "${DIM}If no, Server B will route traffic to local services.${NC}"
+    if confirm "Forward traffic to Server C?" "n"; then
+        HAS_SERVER_C="yes"
+        
+        # Question 7a: Server C IP
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7a:${NC} What is the IP address of Server C?"
+        echo -e "${DIM}This is the final destination server where traffic will be routed.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter Server C IP address: \c"
+        read SERVER_C_IP
+        
+        while [ -z "$SERVER_C_IP" ] || ! validate_ip "$SERVER_C_IP"; do
+            if [ -z "$SERVER_C_IP" ]; then
+                print_error "Server C IP address is required. Please enter a valid IP address."
+            else
+                print_error "Invalid IP address format. Please enter a valid IP like 192.168.1.100"
+            fi
+            echo -e "${CYAN}${ARROW}${NC} Enter Server C IP address: \c"
+            read SERVER_C_IP
+        done
+        print_success "Server C IP: ${CYAN}${SERVER_C_IP}${NC}"
+        
+        # Question 7b: Server C Tunnel Port
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7b:${NC} What port should be used for the VLESS tunnel connection to Server C?"
+        echo -e "${DIM}This is the port that Server B will connect to on Server C.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter Server C tunnel port ${DIM}[8082]${NC}: \c"
+        read SERVER_C_TUNNEL_PORT
+        SERVER_C_TUNNEL_PORT="${SERVER_C_TUNNEL_PORT:-8082}"
+        
+        while ! validate_port "$SERVER_C_TUNNEL_PORT"; do
+            print_error "Invalid port number. Please enter a port between 1-65535"
+            echo -e "${CYAN}${ARROW}${NC} Enter Server C tunnel port ${DIM}[8082]${NC}: \c"
+            read SERVER_C_TUNNEL_PORT
+            SERVER_C_TUNNEL_PORT="${SERVER_C_TUNNEL_PORT:-8082}"
+        done
+        print_success "Server C Tunnel Port: ${CYAN}${SERVER_C_TUNNEL_PORT}${NC}"
+        
+        # Generate keys for B->C connection
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Generating Reality keys for B->C connection...${NC}"
+        generate_reality_keys
+        SERVER_C_PUBLIC_KEY="$PUBLIC_KEY"
+        SERVER_C_PRIVATE_KEY="$PRIVATE_KEY"
+        SERVER_C_SHORT_IDS="$SHORT_IDS"
+        
+        # Extract first short ID for Server B outbound (this must match one in Server C's shortIds array)
+        SERVER_C_FIRST_SHORT_ID=$(echo "$SERVER_C_SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')
+        
+        # Generate UUID for B->C connection
+        SERVER_C_UUID=$(generate_uuid)
+        print_success "Generated UUID for B->C: ${CYAN}${SERVER_C_UUID}${NC}"
+        
+        print_warning "IMPORTANT: Save these details for Server C installation:"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID (for Server C):${NC} ${CYAN}${SERVER_C_UUID}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server C):${NC} ${CYAN}${SERVER_C_PRIVATE_KEY}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short IDs (20 different):${NC} ${CYAN}${SERVER_C_SHORT_IDS}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}First Short ID (used by Server B):${NC} ${CYAN}${SERVER_C_FIRST_SHORT_ID}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${SERVER_C_TUNNEL_PORT}${NC}"
+    else
+        HAS_SERVER_C="no"
+        print_info "Server B will route traffic to local services"
+    fi
+    
+    # Question 8: Domain for nginx (only if not forwarding to Server C)
+    if [ "$HAS_SERVER_C" = "no" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 8:${NC} What domain name should be used for the nginx decoy site?"
+        echo -e "${DIM}This is used for the fake website that hides the tunnel.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter domain name ${DIM}[test.bale.cyou]${NC}: \c"
+        read DOMAIN
+        DOMAIN="${DOMAIN:-test.bale.cyou}"
+        print_success "Domain: ${CYAN}${DOMAIN}${NC}"
+    else
+        # Still need domain for nginx decoy on Server B
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 8:${NC} What domain name should be used for the nginx decoy site on Server B?"
+        echo -e "${DIM}This is used for the fake website that hides the tunnel.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter domain name ${DIM}[test.bale.cyou]${NC}: \c"
+        read DOMAIN
+        DOMAIN="${DOMAIN:-test.bale.cyou}"
+        print_success "Domain: ${CYAN}${DOMAIN}${NC}"
+    fi
     
     print_section_end
     
@@ -895,8 +971,16 @@ install_server_b() {
     print_short_ids "Short IDs (20 different)" "$SERVER_B_SHORT_IDS"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
-    print_config_item "Target Port" "$TARGET_PORT"
-    print_config_item "Domain" "$DOMAIN"
+    if [ "$HAS_SERVER_C" = "yes" ]; then
+        print_config_item "Forwarding to Server C" "Yes"
+        print_config_item "Server C IP" "$SERVER_C_IP"
+        print_config_item "Server C Tunnel Port" "$SERVER_C_TUNNEL_PORT"
+        print_config_item "Server C UUID" "$SERVER_C_UUID"
+        print_config_item "Server C Public Key" "$SERVER_C_PUBLIC_KEY"
+    else
+        print_config_item "Target Port" "$TARGET_PORT"
+        print_config_item "Domain" "$DOMAIN"
+    fi
     print_section_end
     
     # Confirm installation
@@ -933,8 +1017,109 @@ install_server_b() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
+    # Generate port list without duplicates for routing rules
+    if [ "$HAS_SERVER_C" = "no" ]; then
+        ROUTING_PORTS=$(echo "8080,$TARGET_PORT,8082,9090" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+    fi
+    
     # Generate Server B configuration
-    cat > /etc/xray/b.json << EOF
+    if [ "$HAS_SERVER_C" = "yes" ]; then
+        # Server B forwards all traffic to Server C
+        cat > /etc/xray/b.json << EOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "tunnel-in",
+      "listen": "0.0.0.0",
+      "port": $TUNNEL_PORT,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "$UUID" }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$SERVER_NAME"],
+          "privateKey": "$SERVER_B_PRIVATE_KEY",
+          "shortIds": [$SERVER_B_SHORT_IDS]
+        },
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 200,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "to-c",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$SERVER_C_IP",
+            "port": $SERVER_C_TUNNEL_PORT,
+            "users": [
+              { "id": "$SERVER_C_UUID", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "$SERVER_NAME",
+          "publicKey": "$SERVER_C_PUBLIC_KEY",
+          "shortId": "$SERVER_C_FIRST_SHORT_ID",
+          "fingerprint": "chrome",
+          "spiderX": "/"
+        },
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 200,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    },
+    { "tag": "to-nginx-80",  "protocol": "freedom", "settings": { "redirect": "127.0.0.1:80"  } },
+    { "tag": "to-nginx-443", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:443" } },
+    { "protocol": "freedom", "tag": "direct" }
+  ],
+  "routing": {
+    "rules": [
+      { "type": "field", "inboundTag": ["tunnel-in"], "outboundTag": "to-c" }
+    ]
+  }
+}
+EOF
+    else
+        # Server B routes to local services (original behavior)
+        cat > /etc/xray/b.json << EOF
 {
   "log": {
     "access": "/var/log/xray/access.log",
@@ -986,11 +1171,12 @@ install_server_b() {
     "rules": [
       { "type": "field", "inboundTag": ["tunnel-in"], "port": "80",   "outboundTag": "to-nginx-80"  },
       { "type": "field", "inboundTag": ["tunnel-in"], "port": "443",  "outboundTag": "to-nginx-443" },
-      { "type": "field", "inboundTag": ["tunnel-in"], "port": "8080,$TARGET_PORT,8082,9090", "outboundTag": "to-xmplus" }
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "$ROUTING_PORTS", "outboundTag": "to-xmplus" }
     ]
   }
 }
 EOF
+    fi
     
     # Set permissions
     chown root:root /etc/xray/b.json
@@ -1137,6 +1323,380 @@ EOF
     echo
     print_success "Tunnel is now active!"
     print_info "Traffic routing:"
+    if [ "$HAS_SERVER_C" = "yes" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}All traffic:${NC} → Server C ($SERVER_C_IP:$SERVER_C_TUNNEL_PORT)"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Ports 80,443:${NC} → nginx (decoy)"
+    else
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Ports 80,443:${NC} → nginx"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Ports 8080,$TARGET_PORT,8082,9090:${NC} → target service"
+    fi
+    print_section_end
+}
+
+# Function to install Server C
+install_server_c() {
+    print_section "Server C Configuration"
+    
+    print_info "I will ask you for each configuration detail one by one."
+    echo
+    print_warning "You need the details from Server B installation first!"
+    echo
+    
+    # Ensure we can read input
+    if ! [ -t 0 ]; then
+        print_error "Input not available. Please run interactively."
+        exit 1
+    fi
+    
+    # Question 1: UUID from Server B
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the UUID from Server B installation (for B->C connection)?"
+    echo -e "${DIM}This was generated and shown to you during Server B setup for Server C.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter UUID: \c"
+    read UUID
+    if [ -z "$UUID" ]; then
+        print_error "UUID is required. Please enter the UUID from Server B."
+        exit 1
+    fi
+    print_success "UUID: ${CYAN}${UUID}${NC}"
+    
+    # Question 2: Private Key from Server B
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is the Private Key from Server B installation (for B->C connection)?"
+    echo -e "${DIM}This was generated and shown to you during Server B setup for Server C.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
+    read SERVER_C_PRIVATE_KEY
+    if [ -z "$SERVER_C_PRIVATE_KEY" ]; then
+        print_error "Private Key is required. Please enter the Private Key from Server B."
+        exit 1
+    fi
+    print_success "Private Key: ${CYAN}${SERVER_C_PRIVATE_KEY}${NC}"
+    
+    # Question 3: Short IDs from Server B
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What are the Short IDs from Server B installation (for B->C connection)?"
+    echo -e "${DIM}This was generated and shown to you during Server B setup (20 different short IDs).${NC}"
+    echo -e "${DIM}Format: \"id1\", \"id2\", \"id3\", ... (with quotes and commas)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Short IDs: \c"
+    read SERVER_C_SHORT_IDS
+    if [ -z "$SERVER_C_SHORT_IDS" ]; then
+        print_error "Short IDs are required. Please enter the Short IDs from Server B."
+        exit 1
+    fi
+    
+    # Format short IDs properly (ensure they're in JSON array format)
+    # If user entered comma-separated without quotes, add quotes
+    if ! echo "$SERVER_C_SHORT_IDS" | grep -q '"'; then
+        # Convert comma-separated to quoted format
+        SERVER_C_SHORT_IDS=$(echo "$SERVER_C_SHORT_IDS" | sed 's/,/", "/g' | sed 's/^/"/' | sed 's/$/"/')
+    fi
+    
+    # Extract first short ID for validation
+    SERVER_C_FIRST_SHORT_ID=$(echo "$SERVER_C_SHORT_IDS" | cut -d',' -f1 | tr -d '"' | tr -d ' ')
+    print_success "Short IDs: ${CYAN}${SERVER_C_SHORT_IDS}${NC}"
+    print_info "First Short ID (must match Server B): ${CYAN}${SERVER_C_FIRST_SHORT_ID}${NC}"
+    
+    # Question 4: Server Name from Server B
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What is the Server Name from Server B installation?"
+    echo -e "${DIM}This is the Reality server name (SNI) you used on Server B.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+    read SERVER_NAME
+    SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+    print_success "Server Name: ${CYAN}${SERVER_NAME}${NC}"
+    
+    # Question 5: Tunnel Port from Server B
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What is the Tunnel Port from Server B installation (for B->C connection)?"
+    echo -e "${DIM}This is the port you used for VLESS connection from Server B to Server C.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8082]${NC}: \c"
+    read TUNNEL_PORT
+    TUNNEL_PORT="${TUNNEL_PORT:-8082}"
+    
+    while ! validate_port "$TUNNEL_PORT"; do
+        print_error "Invalid port number. Please enter a port between 1-65535"
+        echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8082]${NC}: \c"
+        read TUNNEL_PORT
+        TUNNEL_PORT="${TUNNEL_PORT:-8082}"
+    done
+    print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
+    
+    # Question 6: Target Port
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What port do you want to tunnel to your local service?"
+    echo -e "${DIM}This is the port of your local service (e.g., 8443 for XMPlus).${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
+    read TARGET_PORT
+    TARGET_PORT="${TARGET_PORT:-8443}"
+    
+    while ! validate_port "$TARGET_PORT" || [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; do
+        if [ "$TARGET_PORT" = "80" ] || [ "$TARGET_PORT" = "443" ]; then
+            print_error "Target port cannot be 80 or 443 (use nginx for these)"
+        else
+            print_error "Invalid port number. Please enter a port between 1-65535"
+        fi
+        echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
+        read TARGET_PORT
+        TARGET_PORT="${TARGET_PORT:-8443}"
+    done
+    print_success "Target Port: ${CYAN}${TARGET_PORT}${NC}"
+    
+    # Question 7: Domain for nginx
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What domain name should be used for the nginx decoy site?"
+    echo -e "${DIM}This is used for the fake website that hides the tunnel.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter domain name ${DIM}[test.bale.cyou]${NC}: \c"
+    read DOMAIN
+    DOMAIN="${DOMAIN:-test.bale.cyou}"
+    print_success "Domain: ${CYAN}${DOMAIN}${NC}"
+    
+    print_section_end
+    
+    # Show configuration summary
+    print_section "Configuration Summary"
+    print_config_item "UUID" "$UUID"
+    print_config_item "Private Key" "$SERVER_C_PRIVATE_KEY"
+    print_short_ids "Short IDs (20 different)" "$SERVER_C_SHORT_IDS"
+    print_config_item "Server Name" "$SERVER_NAME"
+    print_config_item "Tunnel Port" "$TUNNEL_PORT"
+    print_config_item "Target Port" "$TARGET_PORT"
+    print_config_item "Domain" "$DOMAIN"
+    print_section_end
+    
+    # Confirm installation
+    if ! confirm "Do you want to proceed with Server C installation?"; then
+        print_warning "Installation cancelled"
+        exit 0
+    fi
+    
+    # Install Xray and Nginx
+    print_section "Installing Services"
+    if ! command -v xray >/dev/null 2>&1; then
+        install_xray_offline
+    else
+        print_success "Xray is already installed"
+        check_xray_version
+    fi
+    
+    if ! command -v nginx >/dev/null 2>&1; then
+        print_info "Installing Nginx..."
+        if command -v apt >/dev/null 2>&1; then
+            apt update && apt install -y nginx
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y nginx
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y nginx
+        fi
+        print_success "Nginx installed successfully"
+    else
+        print_success "Nginx is already installed"
+    fi
+    print_section_end
+    
+    # Create directories and configuration
+    print_section "Creating Configuration"
+    mkdir -p /etc/xray /var/log/xray
+    
+    # Generate port list without duplicates for routing rules
+    ROUTING_PORTS=$(echo "8080,$TARGET_PORT,8082,9090" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+    
+    # Generate Server C configuration (similar to Server B but receives from Server B)
+    cat > /etc/xray/c.json << EOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "tunnel-in",
+      "listen": "0.0.0.0",
+      "port": $TUNNEL_PORT,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "$UUID" }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$SERVER_NAME"],
+          "privateKey": "$SERVER_C_PRIVATE_KEY",
+          "shortIds": [$SERVER_C_SHORT_IDS]
+        },
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 1000000,
+          "scMaxConcurrentPosts": 6,
+          "scMinPostsIntervalMs": 25,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 200,
+          "keepaliveperiod": 60,
+          "mode": "auto"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    { "tag": "to-nginx-80",  "protocol": "freedom", "settings": { "redirect": "127.0.0.1:80"  } },
+    { "tag": "to-nginx-443", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:443" } },
+    { "tag": "to-xmplus",    "protocol": "freedom", "settings": { "redirect": "127.0.0.1:$TARGET_PORT" } }
+  ],
+  "routing": {
+    "rules": [
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "80",   "outboundTag": "to-nginx-80"  },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "443",  "outboundTag": "to-nginx-443" },
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": "$ROUTING_PORTS", "outboundTag": "to-xmplus" }
+    ]
+  }
+}
+EOF
+    
+    # Set permissions
+    chown root:root /etc/xray/c.json
+    chmod 644 /etc/xray/c.json
+    print_success "Configuration file created: /etc/xray/c.json"
+    print_section_end
+    
+    # Generate Nginx configuration
+    print_section "Setting Up Nginx"
+    
+    # Handle Nginx configuration conflicts
+    handle_nginx_conflicts
+    
+    # Disable default Nginx site to avoid conflicts
+    print_info "Disabling default Nginx site to avoid port conflicts..."
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+        rm -f /etc/nginx/sites-enabled/default
+        print_success "Default Nginx site disabled"
+    fi
+    
+    # Also disable default site in sites-available
+    if [ -f /etc/nginx/sites-available/default ]; then
+        rm -f /etc/nginx/sites-available/default
+        print_success "Default Nginx site removed from sites-available"
+    fi
+    
+    cat > /etc/nginx/conf.d/stealth-$TUNNEL_PORT.conf << EOF
+# Public HTTP -> redirect to HTTPS
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://\$host\$request_uri;
+}
+
+# Public HTTPS decoy site
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name $DOMAIN;
+
+    ssl_certificate     /etc/ssl/certs/decoy.crt;
+    ssl_certificate_key /etc/ssl/private/decoy.key;
+
+    # Minimal "normal" site
+    root /var/www/html;
+    index index.html;
+
+    # Security headers (optional but fine)
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Serve files; no tunnel proxy here
+    location / {
+        try_files \$uri \$uri/ =404;
+    }
+
+    # Block dotfiles & configs
+    location ~ /\\.         { deny all; }
+    location ~ \\.(log|conf)\$ { deny all; }
+}
+EOF
+    
+    # Create decoy SSL certificates if they don't exist
+    if [ ! -f "/etc/ssl/certs/decoy.crt" ]; then
+        print_info "Creating decoy SSL certificates..."
+        mkdir -p /etc/ssl/certs /etc/ssl/private
+        
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/ssl/private/decoy.key \
+            -out /etc/ssl/certs/decoy.crt \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+        print_success "SSL certificates created"
+    fi
+    
+    # Create web root and index
+    mkdir -p /var/www/html
+    cat > /var/www/html/index.html << 'HTML'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome</title>
+</head>
+<body>
+    <h1>Welcome to our website</h1>
+    <p>This is a normal website.</p>
+</body>
+</html>
+HTML
+    print_success "Nginx configuration created: /etc/nginx/conf.d/stealth-$TUNNEL_PORT.conf"
+    print_section_end
+    
+    # Create systemd service
+    print_section "Setting Up Services"
+    cat > /etc/systemd/system/xray-c.service << 'EOF'
+[Unit]
+Description=Xray Service (Server C)
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /etc/xray/c.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # Test Nginx configuration before restarting
+    print_info "Testing Nginx configuration..."
+    if nginx -t; then
+        print_success "Nginx configuration test passed"
+    else
+        print_error "Nginx configuration test failed"
+        print_info "Please check the configuration manually"
+        exit 1
+    fi
+    
+    # Reload systemd and start services
+    systemctl daemon-reload
+    systemctl enable xray-c
+    systemctl restart xray-c
+    systemctl enable nginx
+    systemctl restart nginx
+    print_success "Services created and started: xray-c.service, nginx.service"
+    print_section_end
+    
+    # Show completion message
+    print_section "Installation Complete"
+    print_success "Server C installation completed successfully!"
+    echo
+    print_info "Configuration files:"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Xray config:${NC} /etc/xray/c.json"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Nginx config:${NC} /etc/nginx/conf.d/stealth-$TUNNEL_PORT.conf"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Logs location:${NC} /var/log/xray/"
+    echo
+    print_success "Tunnel is now active!"
+    print_info "Traffic routing:"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Ports 80,443:${NC} → nginx"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Ports 8080,$TARGET_PORT,8082,9090:${NC} → target service"
     print_section_end
@@ -1149,17 +1709,19 @@ show_usage() {
     echo
     echo -e "${WHITE}${BOLD}Server types:${NC}"
     echo -e "  ${CYAN}a, server-a, tunnel${NC}    Install on Server A (Tunnel Server)"
-    echo -e "  ${CYAN}b, server-b, dest${NC}     Install on Server B (Destination Server)"
+    echo -e "  ${CYAN}b, server-b, dest${NC}     Install on Server B (Intermediate Server)"
+    echo -e "  ${CYAN}c, server-c, final${NC}     Install on Server C (Final Destination)"
     echo -e "  ${CYAN}auto${NC}                  Auto-detect server type (default)"
     echo
     echo -e "${WHITE}${BOLD}Examples:${NC}"
     echo -e "  ${DIM}bash install${NC}"
     echo -e "  ${DIM}bash install a${NC}"
     echo -e "  ${DIM}bash install server-b${NC}"
+    echo -e "  ${DIM}bash install c${NC}"
     echo
-    echo -e "${WHITE}${BOLD}Manual installation:${NC}"
-    echo -e "  ${DIM}bash install_a.sh${NC}    # For Server A only"
-    echo -e "  ${DIM}bash install_b.sh${NC}    # For Server B only"
+    echo -e "${WHITE}${BOLD}Architecture:${NC}"
+    echo -e "  ${DIM}Server A → Server B → Server C${NC} (optional multi-hop)"
+    echo -e "  ${DIM}Server A → Server B${NC} (direct routing)"
 }
 
 # Main function
@@ -1183,7 +1745,7 @@ main() {
     if [ $# -eq 0 ]; then
         # No arguments, show menu
         show_server_menu
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-4]${NC}"
         echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
         read choice
         
@@ -1195,6 +1757,9 @@ main() {
                 SERVER_TYPE="b"
                 ;;
             3)
+                SERVER_TYPE="c"
+                ;;
+            4)
                 SERVER_TYPE=$(detect_server_type)
                 ;;
             *)
@@ -1209,6 +1774,9 @@ main() {
                 ;;
             "b"|"server-b"|"dest"|"destination")
                 SERVER_TYPE="b"
+                ;;
+            "c"|"server-c"|"final")
+                SERVER_TYPE="c"
                 ;;
             "auto")
                 SERVER_TYPE=$(detect_server_type)
@@ -1228,6 +1796,8 @@ main() {
         install_server_a
     elif [ "$SERVER_TYPE" = "b" ]; then
         install_server_b
+    elif [ "$SERVER_TYPE" = "c" ]; then
+        install_server_c
     else
         print_error "Could not determine server type"
         exit 1
