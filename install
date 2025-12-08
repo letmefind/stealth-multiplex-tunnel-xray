@@ -728,7 +728,8 @@ install_server_a() {
       { "type": "field", "inboundTag": ["entry-80"],   "outboundTag": "to-b" },
       { "type": "field", "inboundTag": ["entry-443"],  "outboundTag": "to-b" },
       { "type": "field", "inboundTag": ["entry-8080"], "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-8443"], "outboundTag": "to-b" }
+      { "type": "field", "inboundTag": ["entry-8443"], "outboundTag": "to-b" },
+      { "type": "field", "outboundTag": "direct" }
     ]
   }
 }
