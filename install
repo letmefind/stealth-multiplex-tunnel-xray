@@ -595,8 +595,59 @@ install_server_a() {
     done
     print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Question 3: Reality Server Name
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What server name should be used for Reality protocol (SNI)?"
+    # Question 3: Client Ports to Forward
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} Which ports should forward traffic to Server B?"
+    echo -e "${DIM}These are the ports that clients will connect to on Server A.${NC}"
+    echo -e "${DIM}Traffic from these ports will be tunneled to Server B.${NC}"
+    echo -e "${DIM}Enter ports separated by commas (e.g., 80,443,8080,8443)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter client ports: \c"
+    read CLIENT_PORTS_INPUT
+    
+    # Validate and parse ports
+    CLIENT_PORTS=""
+    INVALID_PORTS=""
+    
+    if [ -z "$CLIENT_PORTS_INPUT" ]; then
+        print_error "At least one port is required. Please enter ports separated by commas."
+        exit 1
+    fi
+    
+    # Parse comma-separated ports
+    IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS_INPUT"
+    for port in "${PORT_ARRAY[@]}"; do
+        # Trim whitespace
+        port=$(echo "$port" | xargs)
+        
+        if validate_port "$port"; then
+            if [ -z "$CLIENT_PORTS" ]; then
+                CLIENT_PORTS="$port"
+            else
+                CLIENT_PORTS="$CLIENT_PORTS $port"
+            fi
+        else
+            if [ -z "$INVALID_PORTS" ]; then
+                INVALID_PORTS="$port"
+            else
+                INVALID_PORTS="$INVALID_PORTS, $port"
+            fi
+        fi
+    done
+    
+    if [ -n "$INVALID_PORTS" ]; then
+        print_error "Invalid ports: $INVALID_PORTS"
+        print_error "Please enter valid port numbers between 1-65535"
+        exit 1
+    fi
+    
+    if [ -z "$CLIENT_PORTS" ]; then
+        print_error "No valid ports provided. Please enter at least one valid port."
+        exit 1
+    fi
+    
+    print_success "Client ports to forward: ${CYAN}$(echo $CLIENT_PORTS | tr ' ' ',')${NC}"
+    
+    # Question 4: Reality Server Name
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What server name should be used for Reality protocol (SNI)?"
     echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
     read SERVER_NAME
@@ -616,6 +667,7 @@ install_server_a() {
     print_section "Configuration Summary"
     print_config_item "Server B IP" "$SERVER_B_IP"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
+    print_config_item "Client Ports" "$(echo $CLIENT_PORTS | tr ' ' ',')"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "UUID" "$UUID"
     
@@ -644,6 +696,40 @@ install_server_a() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
+    # Generate inbounds array dynamically based on user-selected ports
+    INBOUNDS_JSON=""
+    ROUTING_RULES_JSON=""
+    
+    for port in $CLIENT_PORTS; do
+        # Create inbound entry for each port
+        if [ -z "$INBOUNDS_JSON" ]; then
+            INBOUNDS_JSON="    {
+      \"tag\": \"entry-$port\",
+      \"listen\": \"0.0.0.0\",
+      \"port\": $port,
+      \"protocol\": \"dokodemo-door\",
+      \"settings\": { \"address\": \"127.0.0.1\", \"port\": $port, \"network\": \"tcp\" }
+    }"
+        else
+            INBOUNDS_JSON="$INBOUNDS_JSON,
+    {
+      \"tag\": \"entry-$port\",
+      \"listen\": \"0.0.0.0\",
+      \"port\": $port,
+      \"protocol\": \"dokodemo-door\",
+      \"settings\": { \"address\": \"127.0.0.1\", \"port\": $port, \"network\": \"tcp\" }
+    }"
+        fi
+        
+        # Create routing rule for each port
+        if [ -z "$ROUTING_RULES_JSON" ]; then
+            ROUTING_RULES_JSON="      { \"type\": \"field\", \"inboundTag\": [\"entry-$port\"], \"outboundTag\": \"to-b\" }"
+        else
+            ROUTING_RULES_JSON="$ROUTING_RULES_JSON,
+      { \"type\": \"field\", \"inboundTag\": [\"entry-$port\"], \"outboundTag\": \"to-b\" }"
+        fi
+    done
+    
     # Generate Server A configuration
     cat > /etc/xray/a.json << EOF
 {
@@ -653,34 +739,7 @@ install_server_a() {
     "loglevel": "warning"
   },
   "inbounds": [
-    {
-      "tag": "entry-80",
-      "listen": "0.0.0.0",
-      "port": 80,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 80, "network": "tcp" }
-    },
-    {
-      "tag": "entry-443",
-      "listen": "0.0.0.0",
-      "port": 443,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 443, "network": "tcp" }
-    },
-    {
-      "tag": "entry-8080",
-      "listen": "0.0.0.0",
-      "port": 8080,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 8080, "network": "tcp" }
-    },
-    {
-      "tag": "entry-8443",
-      "listen": "0.0.0.0",
-      "port": 8443,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 8443, "network": "tcp" }
-    }
+$INBOUNDS_JSON
   ],
   "outbounds": [
     {
@@ -725,10 +784,7 @@ install_server_a() {
   "routing": {
     "domainStrategy": "AsIs",
     "rules": [
-      { "type": "field", "inboundTag": ["entry-80"],   "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-443"],  "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-8080"], "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-8443"], "outboundTag": "to-b" },
+$ROUTING_RULES_JSON,
       { "type": "field", "outboundTag": "direct" }
     ]
   }
@@ -778,6 +834,9 @@ EOF
     print_info "Configuration saved to: /etc/xray/a.json"
     print_info "Service: xray-a.service"
     print_info "Logs location: /var/log/xray/"
+    echo
+    print_info "Configured client ports: ${CYAN}$(echo $CLIENT_PORTS | tr ' ' ',')${NC}"
+    print_info "Traffic from these ports will be forwarded to Server B"
     echo
     print_warning "IMPORTANT: Save these details for Server B installation:"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
