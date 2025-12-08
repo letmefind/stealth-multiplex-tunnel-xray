@@ -784,8 +784,7 @@ $INBOUNDS_JSON
   "routing": {
     "domainStrategy": "AsIs",
     "rules": [
-$ROUTING_RULES_JSON,
-      { "type": "field", "outboundTag": "direct" }
+$ROUTING_RULES_JSON
     ]
   }
 }
