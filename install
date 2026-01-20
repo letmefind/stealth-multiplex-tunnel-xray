@@ -807,12 +807,15 @@ install_server_b() {
     done
     print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Question 6: Ports to assign to Server B
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What ports should Server B listen on?"
-    echo -e "${DIM}Enter ports separated by commas (e.g., 80,443,8080,8443). These ports will be directly handled by Xray.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter ports ${DIM}[80,443,8080,8443]${NC}: \c"
+    # Question 6: Ports to forward (port-preserving routing)
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What ports should Server B forward traffic to?"
+    echo -e "${DIM}Enter ports separated by commas (e.g., 80,8080,8443).${NC}"
+    echo -e "${DIM}Traffic from Server A on port 80 will be forwarded to 127.0.0.1:80${NC}"
+    echo -e "${DIM}Traffic from Server A on port 8080 will be forwarded to 127.0.0.1:8080${NC}"
+    echo -e "${DIM}Ports are preserved - same port in = same port out${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter ports ${DIM}[80,8080,8443]${NC}: \c"
     read ASSIGNED_PORTS
-    ASSIGNED_PORTS="${ASSIGNED_PORTS:-80,443,8080,8443}"
+    ASSIGNED_PORTS="${ASSIGNED_PORTS:-80,8080,8443}"
     
     # Validate all ports
     IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
@@ -831,27 +834,13 @@ install_server_b() {
     done
     
     if [ -z "$VALID_PORTS" ]; then
-        print_error "No valid ports provided. Using defaults: 80,443,8080,8443"
-        ASSIGNED_PORTS="80,443,8080,8443"
+        print_error "No valid ports provided. Using defaults: 80,8080,8443"
+        ASSIGNED_PORTS="80,8080,8443"
     else
         ASSIGNED_PORTS="$VALID_PORTS"
     fi
-    print_success "Assigned Ports: ${CYAN}${ASSIGNED_PORTS}${NC}"
-    
-    # Question 7: Target Port Mapping
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What port should tunneled traffic be forwarded to?"
-    echo -e "${DIM}This is the port of your local service (e.g., 8443 for XMPlus).${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
-    read TARGET_PORT
-    TARGET_PORT="${TARGET_PORT:-8443}"
-    
-    while ! validate_port "$TARGET_PORT"; do
-        print_error "Invalid port number. Please enter a port between 1-65535"
-        echo -e "${CYAN}${ARROW}${NC} Enter target port ${DIM}[8443]${NC}: \c"
-        read TARGET_PORT
-        TARGET_PORT="${TARGET_PORT:-8443}"
-    done
-    print_success "Target Port: ${CYAN}${TARGET_PORT}${NC}"
+    print_success "Ports to forward: ${CYAN}${ASSIGNED_PORTS}${NC}"
+    print_info "Traffic will be forwarded to 127.0.0.1:<same-port>"
     
     print_section_end
     
@@ -862,8 +851,8 @@ install_server_b() {
     print_short_ids "Short IDs (20 different)" "$SERVER_B_SHORT_IDS"
     print_config_item "Server Name" "$SERVER_NAME"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
-    print_config_item "Assigned Ports" "$ASSIGNED_PORTS"
-    print_config_item "Target Port" "$TARGET_PORT"
+    print_config_item "Ports to Forward" "$ASSIGNED_PORTS"
+    print_info "Port routing: Each port forwards to 127.0.0.1:<same-port>"
     print_section_end
     
     # Confirm installation
@@ -886,7 +875,7 @@ install_server_b() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
-    # Generate Server B configuration using a temp file approach
+    # Generate Server B configuration with port-preserving routing
     TEMP_CONFIG=$(mktemp)
     
     # Start with base config
@@ -932,68 +921,43 @@ install_server_b() {
         }
       }
     }
-BASEEOF
-    
-    # Add inbounds for each assigned port
-    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
-    for port in "${PORT_ARRAY[@]}"; do
-        port=$(echo "$port" | xargs) # trim whitespace
-        cat >> "$TEMP_CONFIG" << INBOUNDEOF
-    ,
-    {
-      "tag": "port-$port",
-      "listen": "0.0.0.0",
-      "port": $port,
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          { "id": "$UUID" }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "splithttp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "dest": "www.microsoft.com:443",
-          "serverNames": ["$SERVER_NAME"],
-          "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortIds": [$SERVER_B_SHORT_IDS]
-        },
-        "splithttpSettings": {
-          "path": "/assets",
-          "scMaxEachPostBytes": 1000000,
-          "scMaxConcurrentPosts": 6,
-          "scMinPostsIntervalMs": 25,
-          "noSSEHeader": false,
-          "noGRPCHeader": true,
-          "xPaddingBytes": 200,
-          "keepaliveperiod": 60,
-          "mode": "auto"
-        }
-      }
-    }
-INBOUNDEOF
-    done
-    
-    # Add outbounds and routing
-    cat >> "$TEMP_CONFIG" << ROUTINGEOF
   ],
   "outbounds": [
-    { "tag": "to-target", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:TARGET_PORT_PLACEHOLDER" } }
+BASEEOF
+    
+    # Create outbounds for each port (port-preserving)
+    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
+    FIRST_OUTBOUND=true
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_OUTBOUND" = true ]; then
+            FIRST_OUTBOUND=false
+        else
+            echo "," >> "$TEMP_CONFIG"
+        fi
+        cat >> "$TEMP_CONFIG" << OUTBOUNDEOF
+    { "tag": "to-port-$port", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:$port" } }
+OUTBOUNDEOF
+    done
+    
+    # Add routing rules
+    cat >> "$TEMP_CONFIG" << ROUTINGEOF
   ],
   "routing": {
     "rules": [
-      { "type": "field", "inboundTag": ["tunnel-in"], "outboundTag": "to-target" }
 ROUTINGEOF
     
-    # Add routing rules for each assigned port
+    # Add routing rules for each port (port-preserving)
+    FIRST_RULE=true
     for port in "${PORT_ARRAY[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_RULE" = true ]; then
+            FIRST_RULE=false
+        else
+            echo "," >> "$TEMP_CONFIG"
+        fi
         cat >> "$TEMP_CONFIG" << RULEEOF
-      ,
-      { "type": "field", "inboundTag": ["port-$port"], "outboundTag": "to-target" }
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": $port, "outboundTag": "to-port-$port" }
 RULEEOF
     done
     
@@ -1009,7 +973,6 @@ ENDEOF
     sed -i "s/SERVER_NAME_PLACEHOLDER/$SERVER_NAME/g" "$TEMP_CONFIG"
     sed -i "s/PRIVATE_KEY_PLACEHOLDER/$SERVER_B_PRIVATE_KEY/g" "$TEMP_CONFIG"
     sed -i "s/SHORT_IDS_PLACEHOLDER/$SERVER_B_SHORT_IDS/g" "$TEMP_CONFIG"
-    sed -i "s/TARGET_PORT_PLACEHOLDER/$TARGET_PORT/g" "$TEMP_CONFIG"
     
     # Move temp config to final location
     mv "$TEMP_CONFIG" /etc/xray/b.json
@@ -1074,9 +1037,13 @@ EOF
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Logs location:${NC} /var/log/xray/"
     echo
     print_success "Tunnel is now active!"
-    print_info "Traffic routing:"
+    print_info "Traffic routing (port-preserving):"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server A"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Assigned Ports ($ASSIGNED_PORTS):${NC} → Directly handled by Xray → Target Port ($TARGET_PORT)"
+    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Port $port:${NC} → 127.0.0.1:$port"
+    done
     print_section_end
 }
 

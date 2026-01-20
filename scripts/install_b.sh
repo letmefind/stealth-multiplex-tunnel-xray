@@ -270,13 +270,12 @@ prompt_config() {
     read -p "Enable PROXY protocol support? [y/N]: " ENABLE_PROXY_PROTOCOL
     ENABLE_PROXY_PROTOCOL=${ENABLE_PROXY_PROTOCOL:-"n"}
     
-    # Ports to assign to Server B
-    read -p "Ports to assign to Server B (comma-separated, e.g., 80,443,8080,8443) [80,443,8080,8443]: " ASSIGNED_PORTS
-    ASSIGNED_PORTS=${ASSIGNED_PORTS:-"80,443,8080,8443"}
-    
-    # Target port
-    read -p "Target port for tunneled traffic [8443]: " TARGET_PORT
-    TARGET_PORT=${TARGET_PORT:-"8443"}
+    # Ports to forward (port-preserving routing)
+    read -p "Ports to forward (comma-separated, e.g., 80,8080,8443) [80,8080,8443]: " ASSIGNED_PORTS
+    ASSIGNED_PORTS=${ASSIGNED_PORTS:-"80,8080,8443"}
+    echo "Note: Traffic from Server A on port 80 will be forwarded to 127.0.0.1:80"
+    echo "      Traffic from Server A on port 8080 will be forwarded to 127.0.0.1:8080"
+    echo "      Ports are preserved - same port in = same port out"
     
     # TCP BBR
     read -p "Enable TCP BBR optimization? [y/N]: " ENABLE_BBR
@@ -310,8 +309,8 @@ prompt_config() {
     echo "  Protocol: $PROTOCOL"
     echo "  Security: $SECURITY"
     echo "  UUID: $UUID"
-    echo "  Assigned Ports: $ASSIGNED_PORTS"
-    echo "  Target Port: $TARGET_PORT"
+    echo "  Ports to Forward: $ASSIGNED_PORTS"
+    echo "  Port Routing: Each port forwards to 127.0.0.1:<same-port>"
     echo "  Proxy Protocol: $ENABLE_PROXY_PROTOCOL"
     echo "  TCP BBR: $ENABLE_BBR"
     if [[ "$SECURITY" == "tls" ]]; then
@@ -431,68 +430,43 @@ create_xray_config_only() {
         }
       }
     }
-BASEEOF
-    
-    # Add inbounds for each assigned port
-    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
-    for port in "${PORT_ARRAY[@]}"; do
-        port=$(echo "$port" | xargs) # trim whitespace
-        cat >> "$temp_config" << INBOUNDEOF
-    ,
-    {
-      "tag": "port-$port",
-      "listen": "0.0.0.0",
-      "port": $port,
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          { "id": "$UUID" }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "splithttp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "dest": "www.microsoft.com:443",
-          "serverNames": ["$SERVER_NAME"],
-          "privateKey": "$REALITY_PRIVATE_KEY",
-          "shortIds": [$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')]
-        },
-        "splithttpSettings": {
-          "path": "/assets",
-          "scMaxEachPostBytes": 1000000,
-          "scMaxConcurrentPosts": 6,
-          "scMinPostsIntervalMs": 25,
-          "noSSEHeader": false,
-          "noGRPCHeader": true,
-          "xPaddingBytes": 200,
-          "keepaliveperiod": 60,
-          "mode": "auto"
-        }
-      }
-    }
-INBOUNDEOF
-    done
-    
-    # Add outbounds and routing
-    cat >> "$temp_config" << ROUTINGEOF
   ],
   "outbounds": [
-    { "tag": "to-target", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:TARGET_PORT_PLACEHOLDER" } }
+BASEEOF
+    
+    # Create outbounds for each port (port-preserving)
+    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
+    FIRST_OUTBOUND=true
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_OUTBOUND" = true ]; then
+            FIRST_OUTBOUND=false
+        else
+            echo "," >> "$temp_config"
+        fi
+        cat >> "$temp_config" << OUTBOUNDEOF
+    { "tag": "to-port-$port", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:$port" } }
+OUTBOUNDEOF
+    done
+    
+    # Add routing rules
+    cat >> "$temp_config" << ROUTINGEOF
   ],
   "routing": {
     "rules": [
-      { "type": "field", "inboundTag": ["tunnel-in"], "outboundTag": "to-target" }
 ROUTINGEOF
     
-    # Add routing rules for each assigned port
+    # Add routing rules for each port (port-preserving)
+    FIRST_RULE=true
     for port in "${PORT_ARRAY[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_RULE" = true ]; then
+            FIRST_RULE=false
+        else
+            echo "," >> "$temp_config"
+        fi
         cat >> "$temp_config" << RULEEOF
-      ,
-      { "type": "field", "inboundTag": ["port-$port"], "outboundTag": "to-target" }
+      { "type": "field", "inboundTag": ["tunnel-in"], "port": $port, "outboundTag": "to-port-$port" }
 RULEEOF
     done
     
@@ -509,7 +483,6 @@ ENDEOF
     sed -i "s/SERVER_NAME_PLACEHOLDER/$SERVER_NAME/g" "$temp_config"
     sed -i "s/PRIVATE_KEY_PLACEHOLDER/$REALITY_PRIVATE_KEY/g" "$temp_config"
     sed -i "s/SHORT_IDS_PLACEHOLDER/$(echo "$REALITY_SHORT_IDS" | tr ',' '\n' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')/g" "$temp_config"
-    sed -i "s/TARGET_PORT_PLACEHOLDER/$TARGET_PORT/g" "$temp_config"
     
     # Move temp config to final location
     mv "$temp_config" "$config_file"
@@ -630,16 +603,30 @@ display_summary() {
     echo "  Protocol: $PROTOCOL"
     echo "  Security: $SECURITY"
     echo "  UUID: $UUID"
-    echo "  Assigned Ports: $ASSIGNED_PORTS"
-    echo "  Target Port: $TARGET_PORT"
+    echo "  Ports to Forward: $ASSIGNED_PORTS"
+    echo "  Port Routing: Each port forwards to 127.0.0.1:<same-port>"
     echo "  Proxy Protocol: $ENABLE_PROXY_PROTOCOL"
     echo "  Configuration: $XRAY_CONF_DIR/b.json"
     echo "  Service: xray-b"
     echo
     log_info "Testing Commands:"
-    echo "  Check listening ports: ss -tlnp | grep -E ':(80|443|8080|8443|$B_TLS_PORT)\\s'"
+    echo "  Check listening ports: ss -tlnp | grep -E ':$B_TLS_PORT\\s'"
     echo "  Check service status: systemctl status xray-b"
     echo "  View logs: journalctl -u xray-b -e"
+    echo ""
+    log_info "Port Routing (port-preserving):"
+    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        echo "  Port $port: Traffic from Server A → 127.0.0.1:$port"
+    done
+    echo ""
+    log_info "Port Routing (port-preserving):"
+    IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        echo "  Port $port: Traffic from Server A → 127.0.0.1:$port"
+    done
     echo
     log_info "📋 VALUES FOR SERVER A INSTALLATION:"
     echo "=========================================="
