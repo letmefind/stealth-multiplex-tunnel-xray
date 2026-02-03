@@ -744,9 +744,42 @@ install_server_a() {
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     
-    # Question 4: Path (for WebSocket/GRPC) or Server Name (for Reality)
+    # Question 4: Client Ports (ports that Server A will listen on)
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} Which ports should Server A listen on for client connections?"
+    echo -e "${DIM}Enter ports separated by commas (e.g., 80,443,8080,8443).${NC}"
+    echo -e "${DIM}These are the ports that clients will connect to on Server A.${NC}"
+    echo -e "${DIM}Traffic on these ports will be forwarded through the tunnel to Server B.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter client ports ${DIM}[80,443,8080,8443]${NC}: \c"
+    read CLIENT_PORTS_INPUT
+    CLIENT_PORTS_INPUT="${CLIENT_PORTS_INPUT:-80,443,8080,8443}"
+    
+    # Validate all ports
+    IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS_INPUT"
+    VALID_PORTS=""
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        if validate_port "$port"; then
+            if [ -z "$VALID_PORTS" ]; then
+                VALID_PORTS="$port"
+            else
+                VALID_PORTS="$VALID_PORTS,$port"
+            fi
+        else
+            print_error "Invalid port: $port (skipping)"
+        fi
+    done
+    
+    if [ -z "$VALID_PORTS" ]; then
+        print_error "No valid ports provided. Using defaults: 80,443,8080,8443"
+        CLIENT_PORTS="80,443,8080,8443"
+    else
+        CLIENT_PORTS="$VALID_PORTS"
+    fi
+    print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
+    
+    # Question 5: Path (for WebSocket/GRPC) or Server Name (for Reality)
     if [ "$USE_REALITY" = true ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What server name should be used for Reality protocol (SNI)?"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What server name should be used for Reality protocol (SNI)?"
         echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
         read SERVER_NAME
@@ -755,7 +788,7 @@ install_server_a() {
         TRANSPORT_PATH="/assets"
     else
         if [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
-            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What path should be used for ${TRANSPORT_PROTOCOL}?"
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What path should be used for ${TRANSPORT_PROTOCOL}?"
             echo -e "${DIM}This is the HTTP path for WebSocket/GRPC connections.${NC}"
             if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
                 echo -e "${CYAN}${ARROW}${NC} Enter WebSocket path ${DIM}[/assets]${NC}: \c"
@@ -794,6 +827,7 @@ install_server_a() {
     print_section "Configuration Summary"
     print_config_item "Server B IP" "$SERVER_B_IP"
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
+    print_config_item "Client Ports" "$CLIENT_PORTS"
     print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
@@ -839,34 +873,7 @@ install_server_a() {
     "loglevel": "warning"
   },
   "inbounds": [
-    {
-      "tag": "entry-80",
-      "listen": "0.0.0.0",
-      "port": 80,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 80, "network": "tcp" }
-    },
-    {
-      "tag": "entry-443",
-      "listen": "0.0.0.0",
-      "port": 443,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 443, "network": "tcp" }
-    },
-    {
-      "tag": "entry-8080",
-      "listen": "0.0.0.0",
-      "port": 8080,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 8080, "network": "tcp" }
-    },
-    {
-      "tag": "entry-8443",
-      "listen": "0.0.0.0",
-      "port": 8443,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 8443, "network": "tcp" }
-    }
+INBOUNDS_PLACEHOLDER
   ],
   "outbounds": [
     {
@@ -892,14 +899,50 @@ STREAM_SETTINGS_PLACEHOLDER
   "routing": {
     "domainStrategy": "AsIs",
     "rules": [
-      { "type": "field", "inboundTag": ["entry-80"],   "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-443"],  "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-8080"], "outboundTag": "to-b" },
-      { "type": "field", "inboundTag": ["entry-8443"], "outboundTag": "to-b" }
+ROUTING_RULES_PLACEHOLDER
     ]
   }
 }
 BASEEOF
+    
+    # Build inbounds dynamically based on CLIENT_PORTS
+    INBOUNDS_JSON=""
+    IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS"
+    FIRST_INBOUND=true
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_INBOUND" = true ]; then
+            FIRST_INBOUND=false
+        else
+            INBOUNDS_JSON="$INBOUNDS_JSON,"
+        fi
+        INBOUNDS_JSON="${INBOUNDS_JSON}
+    {
+      \"tag\": \"entry-${port}\",
+      \"listen\": \"0.0.0.0\",
+      \"port\": ${port},
+      \"protocol\": \"dokodemo-door\",
+      \"settings\": { \"address\": \"127.0.0.1\", \"port\": ${port}, \"network\": \"tcp\" }
+    }"
+    done
+    
+    # Build routing rules dynamically
+    ROUTING_RULES_JSON=""
+    FIRST_RULE=true
+    for port in "${PORT_ARRAY[@]}"; do
+        port=$(echo "$port" | xargs) # trim whitespace
+        if [ "$FIRST_RULE" = true ]; then
+            FIRST_RULE=false
+        else
+            ROUTING_RULES_JSON="$ROUTING_RULES_JSON,"
+        fi
+        ROUTING_RULES_JSON="${ROUTING_RULES_JSON}
+      { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
+    done
+    
+    # Replace placeholders
+    sed -i "s|INBOUNDS_PLACEHOLDER|$INBOUNDS_JSON|g" "$TEMP_CONFIG_A"
+    sed -i "s|ROUTING_RULES_PLACEHOLDER|$ROUTING_RULES_JSON|g" "$TEMP_CONFIG_A"
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
@@ -987,6 +1030,22 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
+    
+    # Configure firewall for client ports
+    print_section "Configuring Firewall"
+    print_info "Configuring firewall for client ports..."
+    if command -v ufw >/dev/null 2>&1; then
+        ufw allow 22/tcp
+        IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS"
+        for port in "${PORT_ARRAY[@]}"; do
+            port=$(echo "$port" | xargs) # trim whitespace
+            ufw allow "$port/tcp"
+        done
+        print_success "Firewall configured for client ports: $CLIENT_PORTS"
+    else
+        print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS"
+    fi
+    print_section_end
     
     # Configure BBR and TCP optimizations
     print_section "Configuring Network Optimizations"
@@ -1100,23 +1159,6 @@ install_server_b() {
     else
         SERVER_B_PRIVATE_KEY=""
     fi
-    
-    # Question 4: Transport Protocol from Server A (moved up, now Question 2)
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What transport protocol was used on Server A?"
-    echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter transport protocol ${DIM}[splithttp/tcp/ws/grpc, default: splithttp]${NC}: \c"
-    read TRANSPORT_PROTOCOL
-    TRANSPORT_PROTOCOL="${TRANSPORT_PROTOCOL:-splithttp}"
-    
-    case $TRANSPORT_PROTOCOL in
-        splithttp|tcp|ws|grpc)
-            print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
-            ;;
-        *)
-            print_error "Invalid transport protocol. Must be: splithttp, tcp, ws, or grpc"
-            exit 1
-            ;;
-    esac
     
     # Question 4: Path (if WebSocket or GRPC)
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
