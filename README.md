@@ -1,27 +1,100 @@
-# Stealth Multiplex Tunnel Xray / تونل استیل چندگانه Xray
+# 🚀 Stealth Multiplex Tunnel Xray
+
+<div align="center">
 
 [![English](https://img.shields.io/badge/Language-English-blue.svg)](README.md)
-[![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](#فارسی)
+[![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](README_FA.md)
+[![Xray Version](https://img.shields.io/badge/Xray-v26.2.2-success.svg)](https://github.com/XTLS/Xray-core/releases/tag/v26.2.2)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)](https://github.com/letmefind/stealth-multiplex-tunnel-xray)
+
+**A production-ready, high-performance stealth tunnel solution with multiple transport protocols and advanced optimizations**
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Support](#-support)
+
+</div>
 
 ---
 
-## English
+## 📋 Table of Contents
 
-A production-ready, stealth tunnel solution supporting multiple protocols (VLESS/Trojan) and security options (TLS/Reality) with multi-port support and interactive configuration.
+- [Overview](#-overview)
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Architecture](#-architecture)
+- [Transport Protocols](#-transport-protocols)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Performance Optimizations](#-performance-optimizations)
+- [Management Tools](#-management-tools)
+- [Troubleshooting](#-troubleshooting)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-### 🚀 Features
+---
 
-- **Multi-Protocol Support**: VLESS and Trojan protocols
-- **Multi-Security Options**: TLS and Reality security
-- **Multi-Port Support**: Dynamic port management
-- **Interactive Installation**: User-friendly setup process
-- **Production Ready**: Comprehensive monitoring and management tools
-- **Stealth Features**: Decoy sites, hidden tunnels, Chrome fingerprinting
-- **Enhanced Reality**: Multiple short IDs, custom destinations
-- **XHTTP Support**: Complete XHTTP configuration with socket settings
-- **Multi-Hop Support**: Optional Server C for extended routing (A→B→C)
+## 🎯 Overview
 
-### 📋 Quick Start
+**Stealth Multiplex Tunnel Xray** is a comprehensive, production-ready tunneling solution that provides:
+
+- 🔒 **Maximum Stealth** - Advanced DPI bypass with Reality protocol
+- ⚡ **High Performance** - Optimized for speed and efficiency
+- 🌐 **Multiple Transports** - XHTTP, TCP, WebSocket, and GRPC support
+- 🛡️ **Enterprise Security** - TLS fingerprinting and certificate management
+- 📊 **Production Ready** - Comprehensive monitoring and management tools
+
+Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user counts and maximum throughput.
+
+---
+
+## ✨ Features
+
+### 🚀 Transport Protocols
+
+| Protocol | Speed | Stealth | CDN Support | TLS | Best For |
+|----------|-------|---------|-------------|-----|----------|
+| **XHTTP + Reality** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ | ✅ | Maximum stealth & DPI bypass |
+| **TCP Raw** | ⭐⭐⭐⭐⭐ | ⭐⭐ | ❌ | ❌ | Fastest performance |
+| **WebSocket** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ✅ | ❌ | CDN & web proxies |
+| **GRPC** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ✅ | ❌ | High performance & CDN |
+
+### 🔒 Security & Stealth
+
+- ✅ **Reality Protocol** - No real certificates needed, perfect forward secrecy
+- ✅ **TLS Fingerprinting** - Chrome browser mimicry
+- ✅ **Multiple Short IDs** - 20 unique identifiers for client distinction
+- ✅ **Decoy Sites** - Legitimate-looking websites for camouflage
+- ✅ **UUID Security** - Strong, unique identifiers per installation
+
+### ⚡ Performance Optimizations
+
+- ✅ **BBR Congestion Control** - Enabled by default for optimal throughput
+- ✅ **TCP Buffer Optimization** - Tuned for high bandwidth (128MB buffers)
+- ✅ **SplitHTTP Optimization** - CPU/RAM efficient settings for high user counts
+- ✅ **Memory Optimization** - Reduced startup memory usage (v26.2.2)
+- ✅ **Connection Tracking** - Optimized for 1M+ concurrent connections
+
+### 🎯 Advanced Features
+
+- ✅ **Multi-Port Support** - Dynamic port management
+- ✅ **Port-Preserving Routing** - Maintains port numbers through tunnel
+- ✅ **Multi-Hop Support** - Optional Server C for extended routing (A→B→C)
+- ✅ **Interactive Installation** - User-friendly setup wizard
+- ✅ **Comprehensive Tools** - Backup, monitoring, troubleshooting utilities
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Linux server (Ubuntu 20.04+, Debian 11+, CentOS 8+)
+- Root or sudo access
+- At least 512MB RAM
+- Network connectivity
+
+### Installation
 
 ```bash
 # Clone the repository
@@ -39,634 +112,633 @@ sudo bash install
 sudo bash install
 ```
 
-### 🏗️ Architecture
+### Installation Options
 
-- **Server A (Entry)**: Accepts connections on multiple ports and forwards them through a stealth tunnel
-- **Server B (Intermediate)**: Receives tunneled traffic from Server A and can forward to Server C or route to local services
-- **Server C (Final Destination)**: Optional final destination that receives traffic from Server B and routes to local services
-
-**Routing Modes:**
-- **Direct Routing**: `Server A → Server B` (routes to local services)
-- **Multi-Hop Routing**: `Server A → Server B → Server C` (optional intermediate hop)
-
-### 📁 Project Structure
-
-```
-stealth-multiplex-tunnel-xray/
-├── install                       # 🚀 Main interactive installer
-├── install_xray_offline.sh      # 🌐 Offline Xray installer (China/slow networks)
-├── README.md                     # 📖 Comprehensive documentation (English + Persian)
-├── LICENSE                       # 📄 License file
-├── DESCRIPTION.md                # 📝 Project description
-├── PROJECT_SUMMARY.md            # 📊 Detailed project summary
-├── scripts/
-│   ├── install_a.sh            # 🔧 Server A installer
-│   ├── install_b.sh            # 🔧 Server B installer
-│   ├── manage_ports.sh         # 🔧 Port management utility
-│   ├── backup_config.sh        # 🔧 Configuration backup utility
-│   ├── status.sh               # 🔧 Status monitoring utility
-│   ├── troubleshoot.sh         # 🔧 Comprehensive troubleshooting script
-│   ├── quick_fix.sh            # 🔧 Quick fix for common issues
-│   ├── resolve_xray_conflict.sh # 🔧 Xray conflict resolver
-│   ├── validate_and_fix_config.sh # 🔧 Configuration validator and fixer
-│   └── fix_b_to_c_keys.sh      # 🔧 B->C connection key fixer
-├── systemd/
-│   ├── xray-a.service          # ⚙️ Server A systemd service
-│   ├── xray-b.service          # ⚙️ Server B systemd service
-│   └── xray-c.service          # ⚙️ Server C systemd service
-├── nginx/
-│   └── stealth-8081.conf       # 🌐 Nginx configuration template
-└── xray/
-    └── templates/
-        ├── a.tmpl.json         # 🛠️ Server A Xray template
-        └── b.tmpl.json         # 🛠️ Server B Xray template
-```
-
-### 🔧 Installation Process
-
-1. **Run Interactive Installer** - `sudo bash install`
-2. **Choose Server Type** - Server A (Tunnel), Server B (Intermediate), or Server C (Final Destination)
-3. **Configure Settings** - Follow interactive prompts
-4. **Generate Keys** - Reality keys generated automatically (separate keys for A->B and B->C)
-5. **Test connectivity** - Verify end-to-end functionality
-
-### 🎯 Installation Options
-
-- **Interactive Mode**: `sudo bash install` (recommended)
-- **Auto-detect**: `sudo bash install auto`
-- **Server A**: `sudo bash install a`
-- **Server B**: `sudo bash install b`
-- **Server C**: `sudo bash install c`
-
-### 🔗 Multi-Hop Setup (A→B→C)
-
-For multi-hop tunneling:
-
-1. **Install Server A** - `sudo bash install a`
-   - Configure Server B IP and tunnel port
-   - Save the generated UUID, private key, and short IDs
-
-2. **Install Server B** - `sudo bash install b`
-   - Enter details from Server A
-   - When asked, choose to forward to Server C
-   - Enter Server C IP and tunnel port
-   - Save the NEW B->C UUID, private key, and short IDs (different from A->B!)
-
-3. **Install Server C** - `sudo bash install c`
-   - Enter B->C connection details from Server B
-   - Configure target port for local services
-   - Server C will route traffic to local services
-
-### ✨ Interactive Installer Features
-
-- **Modern UI**: Beautiful, colorful interface with emojis and progress indicators
-- **Step-by-step Setup**: Clear questions with explanations and default values
-- **Automatic Key Generation**: Reality keys generated automatically with Xray
-- **Input Validation**: IP address and port validation with helpful error messages
-- **Configuration Summary**: Review all settings before installation
-- **Server Type Detection**: Auto-detect server type based on installed services
-- **Comprehensive Logging**: Detailed installation logs and status messages
-
-### 🛡️ Security Features
-
-- Chrome TLS fingerprinting
-- Reality protocol support
-- Decoy website serving
-- Hidden tunnel paths
-- Certificate management
-- Firewall integration
-- UUID security
-
-### 🌐 XHTTP (SplitHTTP) Configuration
-
-The tunnel uses XHTTP (SplitHTTP) transport for stealth communication. Here's what each configuration value means:
-
-#### **Core Settings:**
-- **`path`**: `/assets` - The HTTP path used for tunnel communication (disguised as asset requests)
-- **`mode`**: `auto` - Automatic mode selection for optimal performance
-
-#### **Performance Tuning:**
-- **`scMaxEachPostBytes`**: `1000000` (1MB) - Maximum bytes per HTTP POST request
-- **`scMaxConcurrentPosts`**: `6` - Maximum concurrent HTTP POST requests
-- **`scMinPostsIntervalMs`**: `25` - Minimum interval between POST requests (25ms)
-
-#### **Stealth Features:**
-- **`noSSEHeader`**: `false` - Include Server-Sent Events headers (appears more legitimate)
-- **`noGRPCHeader`**: `true` - Exclude gRPC headers (reduces detection)
-- **`xPaddingBytes`**: `200` - Random padding bytes to vary packet sizes
-
-#### **Connection Management:**
-- **`keepaliveperiod`**: `60` - Keep-alive period in seconds for HTTP connections
-
-#### **Why These Values Matter:**
-- **Stealth**: Mimics legitimate HTTP traffic patterns
-- **Performance**: Optimized for high-throughput tunneling
-- **Detection Avoidance**: Varies packet sizes and timing to avoid DPI detection
-- **Reliability**: Maintains stable connections with proper keep-alive settings
-
-### 🔐 Reality Protocol Configuration
-
-The tunnel uses Reality protocol for enhanced security and stealth. Here's what each Reality setting means:
-
-#### **Core Reality Settings:**
-- **`serverName`**: `www.accounts.accesscontrol.windows.net` - SNI (Server Name Indication) for TLS handshake
-- **`publicKey`**: Generated X25519 public key for Server A outbound connections
-- **`privateKey`**: Generated X25519 private key for Server B inbound connections
-- **`shortIds`**: Array of 20 different short IDs (16 characters each) for client distinction
-
-#### **Advanced Reality Settings:**
-- **`fingerprint`**: `chrome` - TLS fingerprint to mimic Chrome browser
-- **`spiderX`**: `/` - Path for Reality spider (Server A only)
-- **`show`**: `false` - Don't show Reality handshake (Server B only)
-- **`dest`**: `www.microsoft.com:443` - Destination for Reality handshake (Server B only)
-- **`serverNames`**: Array containing the server name for validation
-
-#### **Security Benefits:**
-- **No Certificate Required**: Reality doesn't need real SSL certificates
-- **Perfect Forward Secrecy**: Each connection uses unique keys
-- **DPI Resistance**: Harder to detect than traditional TLS tunnels
-- **Browser Mimicking**: Appears as legitimate browser traffic
-
-### 📊 Management Tools
-
-- **Port Management**: Add/remove ports dynamically
-- **Configuration Backup**: Automated backup/restore
-- **Configuration Validation**: Validate and fix configuration issues
-- **Key Management**: Regenerate B->C connection keys if needed
-
-### 🌐 Offline Installation (China/Slow Networks)
-
-For servers with limited internet connectivity or in regions with restricted access to GitHub:
-
-#### **Method 1: Automated Offline Installation**
 ```bash
-# Download and run the offline installer
-sudo bash install_xray_offline.sh
-
-# Then run the main installer
+# Interactive mode (recommended)
 sudo bash install
+
+# Auto-detect server type
+sudo bash install auto
+
+# Specific server type
+sudo bash install a    # Server A (Entry)
+sudo bash install b    # Server B (Intermediate)
+sudo bash install c    # Server C (Final Destination)
 ```
 
-#### **Method 2: Manual Installation**
-If the automated method fails:
+### What Happens During Installation
 
-1. **Download Xray manually:**
-   - Go to: https://github.com/XTLS/Xray-core/releases
-   - Download `Xray-linux-64.zip` (for x86_64) or appropriate architecture
-   - Transfer to your server via SCP/SFTP
+1. **Server Type Selection** - Choose A, B, or C
+2. **Transport Protocol** - Select XHTTP/TCP/WebSocket/GRPC
+3. **Configuration** - Enter connection details
+4. **Key Generation** - Reality keys generated automatically
+5. **Service Setup** - Systemd services configured
+6. **Optimization** - BBR and TCP buffers optimized
+7. **Firewall** - Rules configured automatically
 
-2. **Install manually:**
-   ```bash
-   # Extract and install
-   unzip Xray-linux-64.zip
-   sudo cp xray /usr/local/bin/
-   sudo chmod +x /usr/local/bin/xray
-   
-   # Create service
-   sudo cp install_xray_offline.sh /tmp/
-   sudo bash /tmp/install_xray_offline.sh
-   ```
+---
 
-#### **Features of Enhanced Installation:**
-- ✅ **Version Detection**: Shows latest available version
-- ✅ **Dual Installation Methods**: Online (recommended) + Offline (fallback)
-- ✅ **Multiple Mirrors**: GitHub, ghproxy, mirror.ghproxy, fastgit
-- ✅ **Architecture Detection**: Supports x86_64, ARM64, ARM32
-- ✅ **Dependency Management**: Installs wget, curl, unzip automatically
-- ✅ **Service Setup**: Creates systemd service and directories
-- ✅ **Error Handling**: Comprehensive error messages and fallback options
-- ✅ **Version Verification**: Confirms latest version installation
-- ✅ **Update Notifications**: Shows when updates are available
-- ✅ **Nginx Conflict Resolution**: Handles existing Nginx configurations
-- ✅ **Configuration Backup**: Automatic backup of existing configurations
-- ✅ **Configuration Testing**: Tests Nginx config before restart
-- **Status Monitoring**: Comprehensive health checks
-- **Log Analysis**: Structured logging and error tracking
+## 🏗️ Architecture
 
-### 📖 Documentation
+### System Architecture
 
-- [README.md](README.md) - Complete installation guide
-- [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - Configuration examples
-- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - Project overview
-
-### 🔧 Troubleshooting
-
-#### **Common Issues:**
-
-**1. Nginx Port Conflict (Server B)**
 ```
-nginx: [emerg] duplicate default server for 0.0.0.0:80
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Devices                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Server A (Entry)                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Port 80  │  │ Port 443 │  │ Port 8080│  │ Port 8443│   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+│       │             │             │             │          │
+│       └─────────────┴─────────────┴─────────────┘          │
+│                          │                                  │
+│                    [VLESS Tunnel]                          │
+│              (XHTTP/TCP/WS/GRPC)                          │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Server B (Intermediate)                         │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │         Tunnel Port (Receives from A)                │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         │                                     │
+│              ┌──────────┴──────────┐                          │
+│              │                     │                          │
+│         ┌────▼────┐          ┌────▼────┐                    │
+│         │ Forward  │          │  Local  │                    │
+│         │  to C    │          │Services │                    │
+│         └──────────┘          └─────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼ (Optional)
+┌─────────────────────────────────────────────────────────────┐
+│              Server C (Final Destination)                   │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │         Tunnel Port (Receives from B)                │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         │                                     │
+│                   ┌─────▼─────┐                              │
+│                   │   Local   │                              │
+│                   │  Services │                              │
+│                   └───────────┘                              │
+└─────────────────────────────────────────────────────────────┘
 ```
-**Solution:** The script automatically handles this by:
-- Detecting existing Nginx configurations
-- Creating backups before changes
-- Disabling conflicting default sites
-- Testing configuration before restart
 
-**2. Xray Installation Failed (China/Slow Networks)**
+### Routing Modes
+
+#### Direct Routing (A → B)
 ```
-Failed to download Xray binary from all mirrors
+Client → Server A → Server B → Local Services
 ```
-**Solution:** Use offline installation:
+- **Use Case**: Simple two-server setup
+- **Advantage**: Lower latency, simpler configuration
+
+#### Multi-Hop Routing (A → B → C)
+```
+Client → Server A → Server B → Server C → Local Services
+```
+- **Use Case**: Extended routing, additional security layer
+- **Advantage**: Enhanced security, geographic distribution
+
+---
+
+## 🌐 Transport Protocols
+
+### 1. XHTTP (SplitHTTP) with Reality ⭐ Recommended
+
+**Best for**: Maximum stealth and DPI bypass
+
+**Features:**
+- ✅ No real certificates required
+- ✅ Perfect forward secrecy
+- ✅ Chrome TLS fingerprinting
+- ✅ Multiple short IDs (20 unique)
+- ✅ Decoy destination (Microsoft)
+
+**Configuration:**
+```json
+{
+  "network": "splithttp",
+  "security": "reality",
+  "realitySettings": {
+    "serverName": "www.accounts.accesscontrol.windows.net",
+    "publicKey": "generated-x25519-public-key",
+    "shortIds": ["id1", "id2", "..."],
+    "fingerprint": "chrome"
+  },
+  "splithttpSettings": {
+    "path": "/assets",
+    "mode": "Paket-up",
+    "scMaxEachPostBytes": 2097152,
+    "scMaxConcurrentPosts": 4,
+    "scMinPostsIntervalMs": 50,
+    "xPaddingBytes": 0,
+    "keepaliveperiod": 120
+  }
+}
+```
+
+**Performance Settings:**
+- `scMaxEachPostBytes`: 2MB (reduced overhead)
+- `scMaxConcurrentPosts`: 4 (reduced CPU usage)
+- `scMinPostsIntervalMs`: 50ms (reduced CPU usage)
+- `xPaddingBytes`: 0 (reduced RAM usage)
+- `keepaliveperiod`: 120s (reduced connection overhead)
+- `mode`: Paket-up (optimal for SplitHTTP)
+
+### 2. TCP Raw
+
+**Best for**: Maximum speed and simplicity
+
+**Features:**
+- ✅ Fastest protocol
+- ✅ Lowest overhead
+- ✅ No encryption overhead
+- ✅ Simple configuration
+
+**Configuration:**
+```json
+{
+  "network": "tcp"
+}
+```
+
+**Use Cases:**
+- Internal networks
+- High-speed requirements
+- Low-latency applications
+
+### 3. WebSocket
+
+**Best for**: CDN integration and web proxies
+
+**Features:**
+- ✅ CDN compatible
+- ✅ Web firewall bypass
+- ✅ HTTP proxy support
+- ✅ Configurable path
+
+**Configuration:**
+```json
+{
+  "network": "ws",
+  "wsSettings": {
+    "path": "/assets"
+  }
+}
+```
+
+**Use Cases:**
+- Cloudflare/CDN integration
+- Web-based proxies
+- HTTP-only environments
+
+### 4. GRPC
+
+**Best for**: High performance and CDN
+
+**Features:**
+- ✅ CDN compatible
+- ✅ HTTP/2 multiplexing
+- ✅ High performance
+- ✅ Configurable service name
+
+**Configuration:**
+```json
+{
+  "network": "grpc",
+  "grpcSettings": {
+    "serviceName": "/xray.XrayService"
+  }
+}
+```
+
+**Use Cases:**
+- High-performance requirements
+- CDN integration
+- Modern applications
+
+---
+
+## 📦 Installation
+
+### Step-by-Step Installation
+
+#### 1. Server B (Intermediate) Installation
+
 ```bash
-sudo bash install_xray_offline.sh
 sudo bash install
+# Select: Server B
+# Choose transport protocol
+# Enter configuration details
 ```
 
-**3. Reality Key Generation Failed**
-```
-Failed to parse Reality keys, using default keys
-```
-**Solution:** Ensure Xray is properly installed:
+**Required Information:**
+- UUID (from Server A)
+- Private Key (from Server A)
+- Transport Protocol (must match Server A)
+- Transport Path (if WebSocket/GRPC)
+- Short IDs (if XHTTP)
+- Server Name (if XHTTP)
+- Tunnel Port
+- Ports to forward
+
+#### 2. Server A (Entry) Installation
+
 ```bash
-xray version  # Should show version
-xray x25519  # Should generate keys
+sudo bash install
+# Select: Server A
+# Choose transport protocol
+# Enter Server B details
 ```
 
-**4. Service Won't Start**
-```bash
-# Check service status
-systemctl status xray-a  # or xray-b
-systemctl status nginx
+**Required Information:**
+- Server B IP address
+- Tunnel Port
+- Transport Protocol
+- Transport Path (if WebSocket/GRPC)
+- Server Name (if XHTTP)
 
-# Check logs
-journalctl -u xray-a -f
-journalctl -u nginx -f
+**Generated Information (Save for Server B):**
+- UUID
+- Public Key (for Server A)
+- Private Key (for Server B)
+- Short IDs (20 different)
+- Server Name
+
+#### 3. Server C (Optional - Final Destination)
+
+```bash
+sudo bash install
+# Select: Server C
+# Enter B->C connection details
 ```
 
-#### **Recovery Options:**
+---
 
-**Restore Nginx Configuration:**
+## ⚙️ Configuration
+
+### SplitHTTP Optimization Settings
+
+Optimized for high user counts and CPU/RAM efficiency:
+
+```json
+{
+  "splithttpSettings": {
+    "path": "/assets",
+    "mode": "Paket-up",
+    "scMaxEachPostBytes": 2097152,      // 2MB - Reduced overhead
+    "scMaxConcurrentPosts": 4,          // Reduced CPU usage
+    "scMinPostsIntervalMs": 50,         // Reduced CPU usage
+    "noSSEHeader": false,               // Appears legitimate
+    "noGRPCHeader": true,                // Reduces detection
+    "xPaddingBytes": 0,                 // Reduced RAM usage
+    "keepaliveperiod": 120              // Reduced connection overhead
+  }
+}
+```
+
+### BBR and TCP Optimization
+
+Automatically configured during installation:
+
 ```bash
-# List available backups
-ls /etc/nginx/backup-*
+# Manual application
+sudo bash scripts/apply_bbr_tcp_optimization.sh
+```
+
+**Settings Applied:**
+- BBR congestion control
+- TCP buffers: 128MB max (read/write)
+- TCP window scaling
+- TCP Fast Open
+- Connection tracking: 1M max
+- Socket options optimized
+
+**Full Documentation:** [BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)
+
+---
+
+## ⚡ Performance Optimizations
+
+### Xray v26.2.2 Improvements
+
+**Performance Enhancements:**
+- ✅ Reduced memory usage at startup (#5581)
+- ✅ Geodat optimization - Reduced peak memory
+- ✅ VMess replay filter optimization (#5562)
+- ✅ TUN inbound improvements - Fixed connection stalls (#5600)
+- ✅ Hysteria transport improvements (#5603)
+- ✅ XHTTP transport improvements - CDN bypass options (#5414)
+- ✅ MPH domain matcher improvements - Cache usage (#5505)
+
+**New Features:**
+- 🆕 Finalmask - XICMP, XDNS, header-*, mkcp-*
+- 🆕 iOS support - Improved TUN inbound (#5612)
+- 🆕 Darwin improvements - Better macOS support (#5598)
+
+**Full Documentation:** [XRAY_V26.2.2_FEATURES.md](XRAY_V26.2.2_FEATURES.md)
+
+### Recommended Settings for High User Counts
+
+1. **SplitHTTP Mode**: `Paket-up` (optimal for SplitHTTP)
+2. **xPaddingBytes**: `0` (reduces RAM usage)
+3. **scMaxConcurrentPosts**: `4` (reduces CPU usage)
+4. **scMinPostsIntervalMs**: `50` (reduces CPU usage)
+5. **BBR**: Enabled by default
+6. **TCP Buffers**: Optimized for high bandwidth
+
+---
+
+## 🛠️ Management Tools
+
+### Port Management
+
+```bash
+# Add new port
+sudo bash scripts/manage_ports.sh add 8443
+
+# Remove port
+sudo bash scripts/manage_ports.sh remove 8080
+
+# List configured ports
+sudo bash scripts/manage_ports.sh list
+```
+
+### Configuration Backup
+
+```bash
+# Create backup
+sudo bash scripts/backup_config.sh create
+
+# List backups
+sudo bash scripts/backup_config.sh list
 
 # Restore from backup
-sudo cp /etc/nginx/backup-*/default /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
+sudo bash scripts/backup_config.sh restore backup_20231201_120000
+
+# Clean old backups
+sudo bash scripts/backup_config.sh clean
 ```
 
-**Check Installation Status:**
+### Status Monitoring
+
 ```bash
-# Verify Xray installation
-which xray
-xray version
+# Detailed status report
+sudo bash scripts/status.sh status
 
-# Verify Nginx configuration
-nginx -t
+# Quick status check
+sudo bash scripts/status.sh quick
 
-# Check service status
-systemctl is-active xray-a xray-b xray-c nginx
+# Check specific components
+sudo bash scripts/status.sh services
+sudo bash scripts/status.sh ports
+sudo bash scripts/status.sh configs
+sudo bash scripts/status.sh logs
+sudo bash scripts/status.sh resources
+sudo bash scripts/status.sh connectivity
 ```
 
-**5. B->C Connection Issues**
-```
-B->C connection uses same keys as A->B (WRONG!)
-```
-**Solution:** Use the validation and fix scripts:
+### Troubleshooting Tools
+
 ```bash
-# Validate configurations
+# Comprehensive troubleshooting
+sudo bash scripts/troubleshoot.sh
+
+# Quick fix for common issues
+sudo bash scripts/quick_fix.sh
+
+# Resolve Xray conflicts
+sudo bash scripts/resolve_xray_conflict.sh
+
+# Validate and fix configuration
 sudo bash scripts/validate_and_fix_config.sh
 
-# Fix B->C keys if needed
+# Fix B->C connection keys
 sudo bash scripts/fix_b_to_c_keys.sh
 ```
 
-### ⚠️ Disclaimer
+---
 
-This project is provided for educational and legitimate use cases only. Users are responsible for compliance with local laws and regulations.
+## 🔧 Troubleshooting
 
-### 📄 License
+### Common Issues
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+#### 1. Service Won't Start
 
-### 🤝 Contributing
+```bash
+# Check service status
+systemctl status xray-a
+systemctl status xray-b
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+# Check logs
+journalctl -u xray-a -f
+journalctl -u xray-b -f
 
-### 📞 Support
+# Verify configuration
+xray -test -config /etc/xray/a.json
+xray -test -config /etc/xray/b.json
+```
 
-For issues and questions, please open an issue on GitHub.
+#### 2. Connection Issues
+
+**Check UUID Match:**
+```bash
+# Server A
+jq '.outbounds[0].settings.vnext[0].users[0].id' /etc/xray/a.json
+
+# Server B
+jq '.inbounds[0].settings.clients[0].id' /etc/xray/b.json
+```
+
+**Check Transport Protocol Match:**
+```bash
+# Server A
+jq '.outbounds[0].streamSettings.network' /etc/xray/a.json
+
+# Server B
+jq '.inbounds[0].streamSettings.network' /etc/xray/b.json
+```
+
+#### 3. Port Conflicts
+
+```bash
+# Check listening ports
+ss -tlnp | grep -E ':(80|443|8080|8443|8081)\s'
+
+# Check service conflicts
+systemctl list-units | grep -E '(xray|nginx|apache)'
+```
+
+#### 4. Firewall Issues
+
+```bash
+# Check UFW status
+sudo ufw status
+
+# Check iptables rules
+sudo iptables -L -n -v
+
+# Allow required ports
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 8443/tcp
+sudo ufw allow 8081/tcp
+```
+
+#### 5. Performance Issues
+
+```bash
+# Check BBR status
+sysctl net.ipv4.tcp_congestion_control
+
+# Check TCP buffers
+sysctl net.core.rmem_max
+sysctl net.core.wmem_max
+
+# Apply optimizations manually
+sudo bash scripts/apply_bbr_tcp_optimization.sh
+```
+
+### Log Analysis
+
+```bash
+# Xray access logs
+tail -f /var/log/xray/access.log
+
+# Xray error logs
+tail -f /var/log/xray/error.log
+
+# System logs
+journalctl -u xray-a -f
+journalctl -u xray-b -f
+
+# System messages
+dmesg | grep -i xray
+```
 
 ---
 
-## فارسی
+## 📚 Documentation
 
-یک راه‌حل تونل استیل آماده تولید که از پروتکل‌های متعدد (VLESS/Trojan) و گزینه‌های امنیتی (TLS/Reality) با پشتیبانی چندپورت و پیکربندی تعاملی پشتیبانی می‌کند.
+### Main Documentation
 
-### 🚀 ویژگی‌ها
+- **[README.md](README.md)** - This file (English)
+- **[README_FA.md](README_FA.md)** - Persian documentation
+- **[XRAY_V26.2.2_FEATURES.md](XRAY_V26.2.2_FEATURES.md)** - v26.2.2 features and improvements
+- **[BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)** - BBR and TCP optimization guide
+- **[CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md)** - Configuration examples
+- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Detailed project overview
 
-- **پشتیبانی چندپروتکل**: پروتکل‌های VLESS و Trojan
-- **گزینه‌های امنیتی متعدد**: امنیت TLS و Reality
-- **پشتیبانی چندپورت**: مدیریت پویای پورت‌ها
-- **نصب تعاملی**: فرآیند راه‌اندازی کاربرپسند
-- **آماده تولید**: ابزارهای نظارت و مدیریت جامع
-- **ویژگی‌های استیل**: سایت‌های فریب، تونل‌های مخفی، اثر انگشت Chrome
-- **Reality پیشرفته**: شناسه‌های کوتاه متعدد، مقاصد سفارشی
-- **پشتیبانی XHTTP**: پیکربندی کامل XHTTP با تنظیمات سوکت
+### External Resources
 
-### 📋 شروع سریع
+- [Xray-core Documentation](https://xtls.github.io/)
+- [Xray-core GitHub](https://github.com/XTLS/Xray-core)
+- [Xray-core Releases](https://github.com/XTLS/Xray-core/releases)
+
+---
+
+## 🧪 Testing
+
+### Health Checks
 
 ```bash
-# کلون کردن مخزن
-git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
-cd stealth-multiplex-tunnel-xray
+# Check listening ports
+ss -tlnp | grep -E ':(80|443|8080|8443|8081)\s'
 
-# برای سرورهایی با اتصال اینترنت محدود (مثل چین):
-# ابتدا Xray را آفلاین نصب کنید
-sudo bash install_xray_offline.sh
+# Check service status
+systemctl is-active xray-a xray-b
 
-# سپس نصب‌کننده اصلی را اجرا کنید
-sudo bash install
-
-# برای سرورهایی با اتصال اینترنت خوب:
-sudo bash install
+# Test connectivity
+curl -I http://server-a-ip:80
+curl -I http://server-a-ip:443
 ```
 
-### 🏗️ معماری
+### End-to-End Testing
 
-- **سرور A (ورودی)**: اتصالات را روی پورت‌های متعدد می‌پذیرد و آن‌ها را از طریق تونل استیل ارسال می‌کند
-- **سرور B (گیرنده)**: ترافیک تونل شده را پشت Nginx با خاتمه TLS و سایت فریب دریافت می‌کند
-
-### 📁 ساختار پروژه
-
-```
-stealth-multiplex-tunnel-xray/
-├── install                       # 🚀 نصب‌کننده تعاملی اصلی
-├── install_xray_offline.sh      # 🌐 نصب‌کننده آفلاین Xray (چین/شبکه‌های کند)
-├── README.md                     # 📖 مستندات جامع (انگلیسی + فارسی)
-├── LICENSE                       # 📄 فایل مجوز
-├── DESCRIPTION.md                # 📝 توضیحات پروژه
-├── PROJECT_SUMMARY.md            # 📊 خلاصه تفصیلی پروژه
-├── scripts/
-│   ├── install_a.sh            # 🔧 نصب‌کننده سرور A
-│   ├── install_b.sh            # 🔧 نصب‌کننده سرور B
-│   ├── manage_ports.sh         # 🔧 ابزار مدیریت پورت
-│   ├── backup_config.sh        # 🔧 ابزار پشتیبان‌گیری پیکربندی
-│   ├── status.sh               # 🔧 ابزار نظارت وضعیت
-│   ├── troubleshoot.sh         # 🔧 اسکریپت عیب‌یابی جامع
-│   ├── quick_fix.sh            # 🔧 رفع سریع مشکلات رایج
-│   └── resolve_xray_conflict.sh # 🔧 حل‌کننده تعارض Xray
-├── systemd/
-│   ├── xray-a.service          # ⚙️ سرویس systemd سرور A
-│   └── xray-b.service          # ⚙️ سرویس systemd سرور B
-├── nginx/
-│   └── stealth-8081.conf       # 🌐 الگوی پیکربندی Nginx
-└── xray/
-    └── templates/
-        ├── a.tmpl.json         # 🛠️ الگوی Xray سرور A
-        └── b.tmpl.json         # 🛠️ الگوی Xray سرور B
-```
-
-### 🔧 فرآیند نصب
-
-1. **اجرای نصب‌کننده تعاملی** - `sudo bash install`
-2. **انتخاب نوع سرور** - سرور A (تونل) یا سرور B (مقصد)
-3. **پیکربندی تنظیمات** - دنبال کردن دستورالعمل‌های تعاملی
-4. **تولید کلیدها** - کلیدهای Reality به صورت خودکار تولید می‌شوند
-5. **تست اتصال** - تأیید عملکرد end-to-end
-
-### 🎯 گزینه‌های نصب
-
-- **حالت تعاملی**: `sudo bash install` (توصیه شده)
-- **تشخیص خودکار**: `sudo bash install auto`
-- **سرور A**: `sudo bash install a`
-- **سرور B**: `sudo bash install b`
-
-### ✨ ویژگی‌های نصب‌کننده تعاملی
-
-- **رابط کاربری مدرن**: رابط زیبا و رنگی با ایموجی و نشانگرهای پیشرفت
-- **راه‌اندازی گام به گام**: سوالات واضح با توضیحات و مقادیر پیش‌فرض
-- **تولید خودکار کلید**: کلیدهای Reality به صورت خودکار با Xray تولید می‌شوند
-- **اعتبارسنجی ورودی**: اعتبارسنجی آدرس IP و پورت با پیام‌های خطای مفید
-- **خلاصه پیکربندی**: بررسی تمام تنظیمات قبل از نصب
-- **تشخیص نوع سرور**: تشخیص خودکار نوع سرور بر اساس سرویس‌های نصب شده
-- **ثبت‌سازی جامع**: لاگ‌های تفصیلی نصب و پیام‌های وضعیت
-
-### 🛡️ ویژگی‌های امنیتی
-
-- اثر انگشت TLS Chrome
-- پشتیبانی پروتکل Reality
-- ارائه سایت فریب
-- مسیرهای تونل مخفی
-- مدیریت گواهی
-- یکپارچگی فایروال
-- امنیت UUID
-
-### 🌐 پیکربندی XHTTP (SplitHTTP)
-
-تونل از انتقال XHTTP (SplitHTTP) برای ارتباط استیل استفاده می‌کند. در اینجا معنای هر مقدار پیکربندی آمده است:
-
-#### **تنظیمات اصلی:**
-- **`path`**: `/assets` - مسیر HTTP استفاده شده برای ارتباط تونل (مخفی شده به عنوان درخواست‌های asset)
-- **`mode`**: `auto` - انتخاب حالت خودکار برای عملکرد بهینه
-
-#### **تنظیم عملکرد:**
-- **`scMaxEachPostBytes`**: `1000000` (1MB) - حداکثر بایت در هر درخواست HTTP POST
-- **`scMaxConcurrentPosts`**: `6` - حداکثر درخواست‌های HTTP POST همزمان
-- **`scMinPostsIntervalMs`**: `25` - حداقل فاصله بین درخواست‌های POST (25ms)
-
-#### **ویژگی‌های استیل:**
-- **`noSSEHeader`**: `false` - شامل کردن هدرهای Server-Sent Events (قانونی‌تر به نظر می‌رسد)
-- **`noGRPCHeader`**: `true` - حذف هدرهای gRPC (کاهش تشخیص)
-- **`xPaddingBytes`**: `200` - بایت‌های padding تصادفی برای تغییر اندازه بسته‌ها
-
-#### **مدیریت اتصال:**
-- **`keepaliveperiod`**: `60` - دوره keep-alive در ثانیه برای اتصالات HTTP
-
-#### **چرا این مقادیر مهم هستند:**
-- **استیل**: الگوهای ترافیک HTTP قانونی را تقلید می‌کند
-- **عملکرد**: برای تونل‌زنی با توان بالا بهینه شده
-- **اجتناب از تشخیص**: اندازه بسته‌ها و زمان‌بندی را تغییر می‌دهد تا از تشخیص DPI اجتناب کند
-- **قابلیت اطمینان**: اتصالات پایدار را با تنظیمات keep-alive مناسب حفظ می‌کند
-
-### 🔐 پیکربندی پروتکل Reality
-
-تونل از پروتکل Reality برای امنیت و استیل پیشرفته استفاده می‌کند. در اینجا معنای هر تنظیم Reality آمده است:
-
-#### **تنظیمات اصلی Reality:**
-- **`serverName`**: `www.accounts.accesscontrol.windows.net` - SNI (Server Name Indication) برای TLS handshake
-- **`publicKey`**: کلید عمومی X25519 تولید شده برای اتصالات خروجی سرور A
-- **`privateKey`**: کلید خصوصی X25519 تولید شده برای اتصالات ورودی سرور B
-- **`shortIds`**: آرایه‌ای از 20 شناسه کوتاه مختلف (هر کدام 16 کاراکتر) برای تمایز کلاینت
-
-#### **تنظیمات پیشرفته Reality:**
-- **`fingerprint`**: `chrome` - اثر انگشت TLS برای تقلید از مرورگر Chrome
-- **`spiderX`**: `/` - مسیر برای Reality spider (فقط سرور A)
-- **`show`**: `false` - نمایش ندادن Reality handshake (فقط سرور B)
-- **`dest`**: `www.microsoft.com:443` - مقصد برای Reality handshake (فقط سرور B)
-- **`serverNames`**: آرایه‌ای شامل نام سرور برای اعتبارسنجی
-
-#### **مزایای امنیتی:**
-- **بدون نیاز به گواهی**: Reality نیازی به گواهی‌های SSL واقعی ندارد
-- **Perfect Forward Secrecy**: هر اتصال از کلیدهای منحصر به فرد استفاده می‌کند
-- **مقاومت در برابر DPI**: تشخیص آن سخت‌تر از تونل‌های TLS سنتی است
-- **تقلید مرورگر**: به عنوان ترافیک قانونی مرورگر ظاهر می‌شود
-
-### 📊 ابزارهای مدیریت
-
-- **مدیریت پورت**: افزودن/حذف پورت‌ها به صورت پویا
-- **پشتیبان‌گیری پیکربندی**: پشتیبان‌گیری/بازیابی خودکار
-
-### 🌐 نصب آفلاین (چین/شبکه‌های کند)
-
-برای سرورهایی با اتصال اینترنت محدود یا در مناطق با دسترسی محدود به GitHub:
-
-#### **روش 1: نصب آفلاین خودکار**
-```bash
-# دانلود و اجرای نصب‌کننده آفلاین
-sudo bash install_xray_offline.sh
-
-# سپس اجرای نصب‌کننده اصلی
-sudo bash install
-```
-
-#### **روش 2: نصب دستی**
-اگر روش خودکار شکست بخورد:
-
-1. **دانلود دستی Xray:**
-   - برو به: https://github.com/XTLS/Xray-core/releases
-   - دانلود `Xray-linux-64.zip` (برای x86_64) یا معماری مناسب
-   - انتقال به سرور از طریق SCP/SFTP
-
-2. **نصب دستی:**
+1. **Start test service on Server B:**
    ```bash
-   # استخراج و نصب
-   unzip Xray-linux-64.zip
-   sudo cp xray /usr/local/bin/
-   sudo chmod +x /usr/local/bin/xray
-   
-   # ایجاد سرویس
-   sudo cp install_xray_offline.sh /tmp/
-   sudo bash /tmp/install_xray_offline.sh
+   sudo nc -l 127.0.0.1 8080
    ```
 
-#### **ویژگی‌های نصب پیشرفته:**
-- ✅ **تشخیص نسخه**: آخرین نسخه موجود را نمایش می‌دهد
-- ✅ **دو روش نصب**: آنلاین (توصیه شده) + آفلاین (پشتیبان)
-- ✅ **چندین آینه**: GitHub، ghproxy، mirror.ghproxy، fastgit
-- ✅ **تشخیص معماری**: از x86_64، ARM64، ARM32 پشتیبانی می‌کند
-- ✅ **مدیریت وابستگی‌ها**: wget، curl، unzip را خودکار نصب می‌کند
-- ✅ **تنظیم سرویس**: سرویس systemd و دایرکتوری‌ها را ایجاد می‌کند
-- ✅ **مدیریت خطا**: پیام‌های خطای جامع و گزینه‌های جایگزین
-- ✅ **تأیید نسخه**: نصب آخرین نسخه را تأیید می‌کند
-- ✅ **اطلاع‌رسانی به‌روزرسانی**: زمانی که به‌روزرسانی موجود است نمایش می‌دهد
-- ✅ **حل تعارض Nginx**: مدیریت پیکربندی‌های موجود Nginx
-- ✅ **پشتیبان‌گیری پیکربندی**: پشتیبان‌گیری خودکار پیکربندی‌های موجود
-- ✅ **تست پیکربندی**: تست پیکربندی Nginx قبل از راه‌اندازی مجدد
-- **نظارت وضعیت**: بررسی‌های سلامت جامع
-- **تحلیل لاگ**: ثبت‌سازی ساختاریافته و ردیابی خطا
+2. **Connect from client to Server A:**
+   ```bash
+   nc server-a-ip 8080
+   ```
 
-### 📖 مستندات
-
-- [README.md](README.md) - راهنمای نصب کامل
-- [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md) - نمونه‌های پیکربندی
-- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) - نمای کلی پروژه
-
-### 🔧 عیب‌یابی
-
-#### **مشکلات رایج:**
-
-**1. تعارض پورت Nginx (سرور B)**
-```
-nginx: [emerg] duplicate default server for 0.0.0.0:80
-```
-**راه‌حل:** اسکریپت به صورت خودکار این مشکل را حل می‌کند:
-- تشخیص پیکربندی‌های موجود Nginx
-- ایجاد پشتیبان قبل از تغییرات
-- غیرفعال کردن سایت‌های پیش‌فرض متضاد
-- تست پیکربندی قبل از راه‌اندازی مجدد
-
-**2. نصب Xray ناموفق (چین/شبکه‌های کند)**
-```
-Failed to download Xray binary from all mirrors
-```
-**راه‌حل:** از نصب آفلاین استفاده کنید:
-```bash
-sudo bash install_xray_offline.sh
-sudo bash install
-```
-
-**3. تولید کلید Reality ناموفق**
-```
-Failed to parse Reality keys, using default keys
-```
-**راه‌حل:** اطمینان حاصل کنید که Xray به درستی نصب شده:
-```bash
-xray version  # باید نسخه را نشان دهد
-xray x25519  # باید کلیدها را تولید کند
-```
-
-**4. سرویس راه‌اندازی نمی‌شود**
-```bash
-# بررسی وضعیت سرویس
-systemctl status xray-a  # یا xray-b
-systemctl status nginx
-
-# بررسی لاگ‌ها
-journalctl -u xray-a -f
-journalctl -u nginx -f
-```
-
-#### **گزینه‌های بازیابی:**
-
-**بازیابی پیکربندی Nginx:**
-```bash
-# لیست پشتیبان‌های موجود
-ls /etc/nginx/backup-*
-
-# بازیابی از پشتیبان
-sudo cp /etc/nginx/backup-*/default /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
-```
-
-**بررسی وضعیت نصب:**
-```bash
-# تأیید نصب Xray
-which xray
-xray version
-
-# تأیید پیکربندی Nginx
-nginx -t
-
-# بررسی وضعیت سرویس‌ها
-systemctl is-active xray-a xray-b nginx
-```
-
-### ⚠️ سلب مسئولیت
-
-این پروژه فقط برای موارد استفاده آموزشی و مشروع ارائه شده است. کاربران مسئول رعایت قوانین محلی هستند.
-
-### 📄 مجوز
-
-این پروژه تحت مجوز MIT مجوز دارد - برای جزئیات فایل LICENSE را ببینید.
-
-### 🤝 مشارکت
-
-مشارکت‌ها خوشامد است! لطفاً Pull Request ارسال کنید.
-
-### 📞 پشتیبانی
-
-برای مسائل و سوالات، لطفاً یک issue در GitHub باز کنید.
+3. **Type messages** - They should appear in Server B's nc session.
 
 ---
 
-## 🌍 Language Selection / انتخاب زبان
+## 🤝 Contributing
 
-- [English](#english) - Complete English documentation
-- [فارسی](#فارسی) - مستندات کامل فارسی
+Contributions are welcome! Please follow these steps:
 
-## 📊 Project Stats / آمار پروژه
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-![GitHub stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)
-![GitHub forks](https://img.shields.io/github/forks/letmefind/stealth-multiplex-tunnel-xray?style=social)
-![GitHub issues](https://img.shields.io/github/issues/letmefind/stealth-multiplex-tunnel-xray)
-![GitHub license](https://img.shields.io/github/license/letmefind/stealth-multiplex-tunnel-xray)
+### Contribution Guidelines
 
-## 🔗 Quick Links / لینک‌های سریع
+- Follow existing code style
+- Add comments for complex logic
+- Update documentation for new features
+- Test your changes thoroughly
+- Follow semantic versioning
 
-- **Installation Guide / راهنمای نصب**: [README.md](README.md)
-- **Configuration Examples / نمونه‌های پیکربندی**: [CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md)
-- **Project Summary / خلاصه پروژه**: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)
-- **Issues / مسائل**: [GitHub Issues](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
-- **Releases / انتشارات**: [GitHub Releases](https://github.com/letmefind/stealth-multiplex-tunnel-xray/releases)
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## ⚠️ Disclaimer
+
+This project is provided for **educational and legitimate use cases only**. Users are responsible for:
+
+- Compliance with local laws and regulations
+- Proper authorization for network usage
+- Ethical use of the software
+
+The authors and contributors are not responsible for any misuse of this software.
+
+---
+
+## 📞 Support
+
+### Getting Help
+
+- **GitHub Issues**: [Open an issue](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
+- **Documentation**: Check the [documentation](#-documentation) section
+- **Troubleshooting**: Use the [troubleshooting tools](#-troubleshooting)
+
+### Reporting Issues
+
+When reporting issues, please include:
+
+- Xray version (`xray version`)
+- Operating system and version
+- Installation method
+- Error messages and logs
+- Steps to reproduce
+
+---
+
+<div align="center">
+
+**Made with ❤️ for communication freedom**
+
+[⬆ Back to top](#-stealth-multiplex-tunnel-xray)
+
+</div>

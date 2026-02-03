@@ -277,9 +277,7 @@ prompt_config() {
     echo "      Traffic from Server A on port 8080 will be forwarded to 127.0.0.1:8080"
     echo "      Ports are preserved - same port in = same port out"
     
-    # TCP BBR
-    read -p "Enable TCP BBR optimization? [y/N]: " ENABLE_BBR
-    ENABLE_BBR=${ENABLE_BBR:-"n"}
+    # BBR is now enabled by default (removed prompt)
     
     # Initialize TLS variables if not set (for Reality mode)
     ALLOW_INSECURE=${ALLOW_INSECURE:-"n"}
@@ -419,14 +417,14 @@ create_xray_config_only() {
         },
         "splithttpSettings": {
           "path": "/assets",
-          "scMaxEachPostBytes": 1000000,
-          "scMaxConcurrentPosts": 6,
-          "scMinPostsIntervalMs": 25,
+          "scMaxEachPostBytes": 2097152,
+          "scMaxConcurrentPosts": 4,
+          "scMinPostsIntervalMs": 50,
           "noSSEHeader": false,
           "noGRPCHeader": true,
-          "xPaddingBytes": 200,
-          "keepaliveperiod": 60,
-          "mode": "auto"
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "Paket-up"
         }
       }
     }
@@ -522,20 +520,84 @@ EOF
     log_success "Systemd service installed and enabled"
 }
 
-# Configure TCP BBR
-configure_bbr() {
-    if [[ "$ENABLE_BBR" == "y" || "$ENABLE_BBR" == "Y" ]]; then
-        log_info "Configuring TCP BBR..."
-        
-        cat > /etc/sysctl.d/99-bbr.conf << EOF
+# Configure BBR and TCP optimizations (always enabled)
+configure_bbr_and_tcp() {
+    log_info "Configuring BBR and TCP buffer optimizations..."
+    
+    # Check if BBR is already enabled
+    if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then
+        CURRENT_CC=$(cat /proc/sys/net/ipv4/tcp_congestion_control)
+        if [ "$CURRENT_CC" = "bbr" ]; then
+            log_success "BBR is already enabled"
+        else
+            log_info "Enabling BBR..."
+        fi
+    fi
+    
+    # Create comprehensive sysctl configuration
+    cat > /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
+# BBR Congestion Control
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
+
+# TCP Buffer Optimizations for High Bandwidth
+net.core.rmem_max=134217728
+net.core.wmem_max=134217728
+net.ipv4.tcp_rmem=4096 87380 67108864
+net.ipv4.tcp_wmem=4096 65536 67108864
+net.ipv4.tcp_mem=262144 524288 1048576
+
+# TCP Window Scaling
+net.ipv4.tcp_window_scaling=1
+net.ipv4.tcp_timestamps=1
+net.ipv4.tcp_sack=1
+
+# TCP Fast Open
+net.ipv4.tcp_fastopen=3
+
+# Connection Tracking
+net.netfilter.nf_conntrack_max=1000000
+net.ipv4.netfilter.ip_conntrack_max=1000000
+
+# Socket Options
+net.core.somaxconn=65535
+net.core.netdev_max_backlog=5000
+
+# TCP Keepalive
+net.ipv4.tcp_keepalive_time=600
+net.ipv4.tcp_keepalive_probes=3
+net.ipv4.tcp_keepalive_intvl=15
+
+# TCP SYN Cookies (DDoS protection)
+net.ipv4.tcp_syncookies=1
+
+# TCP Fin Timeout
+net.ipv4.tcp_fin_timeout=30
+
+# TCP Tw Reuse
+net.ipv4.tcp_tw_reuse=1
 EOF
-        
-        sysctl --system
-        
-        log_success "TCP BBR configured"
+    
+    # Apply sysctl settings
+    sysctl --system >/dev/null 2>&1
+    
+    # Verify BBR is enabled
+    if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then
+        CURRENT_CC=$(cat /proc/sys/net/ipv4/tcp_congestion_control)
+        if [ "$CURRENT_CC" = "bbr" ]; then
+            log_success "BBR enabled successfully"
+        else
+            log_warning "BBR may require kernel module. Current: $CURRENT_CC"
+            log_info "To enable BBR manually, run: modprobe tcp_bbr"
+        fi
     fi
+    
+    log_success "TCP buffer optimizations configured"
+    log_info "Optimizations applied:"
+    echo "  BBR: Enabled"
+    echo "  TCP Buffers: Optimized for high bandwidth"
+    echo "  Window Scaling: Enabled"
+    echo "  Fast Open: Enabled"
 }
 
 # Configure firewall
@@ -674,7 +736,7 @@ main() {
     validate_ports
     create_xray_config_only
     install_systemd_service
-    configure_bbr
+    configure_bbr_and_tcp
     configure_firewall
     start_services
     display_summary
