@@ -231,7 +231,17 @@ check_xray_version() {
             LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
             if [ -n "$LATEST_VERSION" ]; then
                 print_info "Latest Xray version: ${CYAN}${LATEST_VERSION}${NC}"
-                if echo "$CURRENT_VERSION" | grep -q "$LATEST_VERSION"; then
+                # Extract version number from current version (e.g., "26.2.2" from "Xray 26.2.2")
+                CURRENT_VERSION_NUM=$(echo "$CURRENT_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                LATEST_VERSION_NUM=$(echo "$LATEST_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+                
+                if [ -n "$CURRENT_VERSION_NUM" ] && [ -n "$LATEST_VERSION_NUM" ]; then
+                    if [ "$CURRENT_VERSION_NUM" = "$LATEST_VERSION_NUM" ]; then
+                        print_success "✅ You have the latest version"
+                    else
+                        print_warning "⚠️  Update available: ${LATEST_VERSION}"
+                    fi
+                elif echo "$CURRENT_VERSION" | grep -qi "$LATEST_VERSION"; then
                     print_success "✅ You have the latest version"
                 else
                     print_warning "⚠️  Update available: ${LATEST_VERSION}"
@@ -940,9 +950,22 @@ BASEEOF
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
     
-    # Replace placeholders
-    sed -i "s|INBOUNDS_PLACEHOLDER|$INBOUNDS_JSON|g" "$TEMP_CONFIG_A"
-    sed -i "s|ROUTING_RULES_PLACEHOLDER|$ROUTING_RULES_JSON|g" "$TEMP_CONFIG_A"
+    # Replace placeholders using temporary files to avoid sed issues with special characters
+    INBOUNDS_TEMP=$(mktemp)
+    ROUTING_TEMP=$(mktemp)
+    echo -n "$INBOUNDS_JSON" > "$INBOUNDS_TEMP"
+    echo -n "$ROUTING_RULES_JSON" > "$ROUTING_TEMP"
+    
+    # Use perl or awk for safer replacement, fallback to sed with proper escaping
+    if command -v perl >/dev/null 2>&1; then
+        perl -i -pe "BEGIN{undef \$/;} s|INBOUNDS_PLACEHOLDER|`cat \"$INBOUNDS_TEMP\"`|gs" "$TEMP_CONFIG_A"
+        perl -i -pe "BEGIN{undef \$/;} s|ROUTING_RULES_PLACEHOLDER|`cat \"$ROUTING_TEMP\"`|gs" "$TEMP_CONFIG_A"
+    else
+        # Fallback: use sed with proper delimiter and escape
+        sed -i.tmp "s|INBOUNDS_PLACEHOLDER|$(cat "$INBOUNDS_TEMP" | sed 's/[[\.*^$()+?{|]/\\&/g')|g" "$TEMP_CONFIG_A" && rm -f "$TEMP_CONFIG_A.tmp"
+        sed -i.tmp "s|ROUTING_RULES_PLACEHOLDER|$(cat "$ROUTING_TEMP" | sed 's/[[\.*^$()+?{|]/\\&/g')|g" "$TEMP_CONFIG_A" && rm -f "$TEMP_CONFIG_A.tmp"
+    fi
+    rm -f "$INBOUNDS_TEMP" "$ROUTING_TEMP"
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
