@@ -1053,18 +1053,39 @@ install_server_b() {
     fi
     print_success "UUID: ${CYAN}${UUID}${NC}"
     
-    # Question 2: Private Key from Server A
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is the Private Key from Server A installation?"
-    echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
-    read SERVER_B_PRIVATE_KEY
-    if [ -z "$SERVER_B_PRIVATE_KEY" ]; then
-        print_error "Private Key is required. Please enter the Private Key from Server A."
-        exit 1
-    fi
-    print_success "Private Key: ${CYAN}${SERVER_B_PRIVATE_KEY}${NC}"
+    # Question 2: Transport Protocol from Server A (must be asked first!)
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What transport protocol was used on Server A?"
+    echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter transport protocol ${DIM}[splithttp/tcp/ws/grpc, default: splithttp]${NC}: \c"
+    read TRANSPORT_PROTOCOL
+    TRANSPORT_PROTOCOL="${TRANSPORT_PROTOCOL:-splithttp}"
     
-    # Question 3: Transport Protocol from Server A
+    case $TRANSPORT_PROTOCOL in
+        splithttp|tcp|ws|grpc)
+            print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+            ;;
+        *)
+            print_error "Invalid transport protocol. Must be: splithttp, tcp, ws, or grpc"
+            exit 1
+            ;;
+    esac
+    
+    # Question 3: Private Key (only if using Reality/splithttp)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Private Key from Server A installation?"
+        echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
+        read SERVER_B_PRIVATE_KEY
+        if [ -z "$SERVER_B_PRIVATE_KEY" ]; then
+            print_error "Private Key is required. Please enter the Private Key from Server A."
+            exit 1
+        fi
+        print_success "Private Key: ${CYAN}${SERVER_B_PRIVATE_KEY}${NC}"
+    else
+        SERVER_B_PRIVATE_KEY=""
+    fi
+    
+    # Question 4: Transport Protocol from Server A (moved up, now Question 2)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What transport protocol was used on Server A?"
     echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter transport protocol ${DIM}[splithttp/tcp/ws/grpc, default: splithttp]${NC}: \c"
@@ -1117,7 +1138,7 @@ install_server_b() {
         SERVER_B_SHORT_IDS=""
     fi
     
-    # Question 6: Server Name (only if using Reality/splithttp)
+    # Question 5/6: Server Name (only if using Reality/splithttp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What is the Server Name from Server A installation?"
         echo -e "${DIM}This is the Reality server name (SNI) you used on Server A.${NC}"
@@ -1129,8 +1150,15 @@ install_server_b() {
         SERVER_NAME=""
     fi
     
-    # Question 7: Tunnel Port from Server A
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What is the Tunnel Port from Server A installation?"
+    # Tunnel Port from Server A (question number depends on transport protocol)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        QUESTION_NUM="7"
+    elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        QUESTION_NUM="5"
+    else
+        QUESTION_NUM="3"
+    fi
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Tunnel Port from Server A installation?"
     echo -e "${DIM}This is the port you used for VLESS connection on Server A.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8081]${NC}: \c"
     read TUNNEL_PORT
@@ -1144,8 +1172,15 @@ install_server_b() {
     done
     print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Question 8: Ports to forward (port-preserving routing)
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 8:${NC} What ports should Server B forward traffic to?"
+    # Ports to forward (question number depends on transport protocol)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        QUESTION_NUM="8"
+    elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        QUESTION_NUM="6"
+    else
+        QUESTION_NUM="4"
+    fi
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What ports should Server B forward traffic to?"
     echo -e "${DIM}Enter ports separated by commas (e.g., 80,8080,8443).${NC}"
     echo -e "${DIM}Traffic from Server A on port 80 will be forwarded to 127.0.0.1:80${NC}"
     echo -e "${DIM}Traffic from Server A on port 8080 will be forwarded to 127.0.0.1:8080${NC}"

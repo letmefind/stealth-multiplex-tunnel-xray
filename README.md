@@ -100,17 +100,42 @@ Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user cou
 # Clone the repository
 git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
 cd stealth-multiplex-tunnel-xray
+```
 
-# For servers with limited internet (e.g., China):
-# First install Xray offline
-sudo bash install_xray_offline.sh
+#### Option 1: Servers with Good Internet Connectivity (Recommended)
 
-# Then run the main installer
-sudo bash install
+If your server has direct access to GitHub and good internet speed:
 
-# For servers with good internet connectivity:
+```bash
+# Run the main installer (it will download Xray automatically)
 sudo bash install
 ```
+
+**What happens:**
+- The installer automatically downloads Xray from GitHub
+- Installs Xray and all dependencies
+- Configures the tunnel based on your choices
+
+#### Option 2: Servers with Limited Internet (China/Slow Networks)
+
+If your server has limited internet access or cannot access GitHub directly:
+
+```bash
+# Step 1: Install Xray offline first
+sudo bash install_xray_offline.sh
+
+# Step 2: Then run the main installer
+sudo bash install
+```
+
+**What happens:**
+- `install_xray_offline.sh` downloads Xray using multiple mirrors (GitHub, ghproxy, fastgit)
+- If all mirrors fail, it provides manual installation instructions
+- `install` then uses the already-installed Xray to configure the tunnel
+
+**Why two steps?**
+- `install_xray_offline.sh` handles Xray installation with fallback mirrors
+- `install` handles tunnel configuration (doesn't need to download Xray again)
 
 ### Installation Options
 
