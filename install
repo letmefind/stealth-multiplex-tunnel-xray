@@ -1056,19 +1056,35 @@ install_server_b() {
     # Question 2: Transport Protocol from Server A (must be asked first!)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What transport protocol was used on Server A?"
     echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter transport protocol ${DIM}[splithttp/tcp/ws/grpc, default: splithttp]${NC}: \c"
-    read TRANSPORT_PROTOCOL
-    TRANSPORT_PROTOCOL="${TRANSPORT_PROTOCOL:-splithttp}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-4, default: 1]${NC}: \c"
+    read TRANSPORT_CHOICE
+    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
-    case $TRANSPORT_PROTOCOL in
-        splithttp|tcp|ws|grpc)
-            print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    case $TRANSPORT_CHOICE in
+        1)
+            TRANSPORT_PROTOCOL="splithttp"
+            ;;
+        2)
+            TRANSPORT_PROTOCOL="tcp"
+            ;;
+        3)
+            TRANSPORT_PROTOCOL="ws"
+            ;;
+        4)
+            TRANSPORT_PROTOCOL="grpc"
             ;;
         *)
-            print_error "Invalid transport protocol. Must be: splithttp, tcp, ws, or grpc"
-            exit 1
+            print_warning "Invalid choice, using XHTTP (SplitHTTP)"
+            TRANSPORT_PROTOCOL="splithttp"
             ;;
     esac
+    print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     
     # Question 3: Private Key (only if using Reality/splithttp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
