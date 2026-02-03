@@ -871,51 +871,10 @@ install_server_a() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
-    # Generate Server A configuration
+    # Generate Server A configuration - build JSON directly without placeholders
     TEMP_CONFIG_A=$(mktemp)
     
-    # Build base config
-    cat > "$TEMP_CONFIG_A" << 'BASEEOF'
-{
-  "log": {
-    "access": "/var/log/xray/access.log",
-    "error": "/var/log/xray/error.log",
-    "loglevel": "warning"
-  },
-  "inbounds": [
-INBOUNDS_PLACEHOLDER
-  ],
-  "outbounds": [
-    {
-      "tag": "to-b",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "SERVER_B_IP_PLACEHOLDER",
-            "port": TUNNEL_PORT_PLACEHOLDER,
-            "users": [
-              { "id": "UUID_PLACEHOLDER", "encryption": "none" }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-STREAM_SETTINGS_PLACEHOLDER
-      }
-    },
-    { "protocol": "freedom", "tag": "direct" }
-  ],
-  "routing": {
-    "domainStrategy": "AsIs",
-    "rules": [
-ROUTING_RULES_PLACEHOLDER
-    ]
-  }
-}
-BASEEOF
-    
-    # Build inbounds dynamically based on CLIENT_PORTS
+    # Build inbounds array
     INBOUNDS_JSON=""
     IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS"
     FIRST_INBOUND=true
@@ -936,7 +895,7 @@ BASEEOF
     }"
     done
     
-    # Build routing rules dynamically
+    # Build routing rules array
     ROUTING_RULES_JSON=""
     FIRST_RULE=true
     for port in "${PORT_ARRAY[@]}"; do
@@ -950,22 +909,44 @@ BASEEOF
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
     
-    # Replace placeholders using temporary files to avoid sed issues with special characters
-    INBOUNDS_TEMP=$(mktemp)
-    ROUTING_TEMP=$(mktemp)
-    echo -n "$INBOUNDS_JSON" > "$INBOUNDS_TEMP"
-    echo -n "$ROUTING_RULES_JSON" > "$ROUTING_TEMP"
-    
-    # Use perl or awk for safer replacement, fallback to sed with proper escaping
-    if command -v perl >/dev/null 2>&1; then
-        perl -i -pe "BEGIN{undef \$/;} s|INBOUNDS_PLACEHOLDER|`cat \"$INBOUNDS_TEMP\"`|gs" "$TEMP_CONFIG_A"
-        perl -i -pe "BEGIN{undef \$/;} s|ROUTING_RULES_PLACEHOLDER|`cat \"$ROUTING_TEMP\"`|gs" "$TEMP_CONFIG_A"
-    else
-        # Fallback: use sed with proper delimiter and escape
-        sed -i.tmp "s|INBOUNDS_PLACEHOLDER|$(cat "$INBOUNDS_TEMP" | sed 's/[[\.*^$()+?{|]/\\&/g')|g" "$TEMP_CONFIG_A" && rm -f "$TEMP_CONFIG_A.tmp"
-        sed -i.tmp "s|ROUTING_RULES_PLACEHOLDER|$(cat "$ROUTING_TEMP" | sed 's/[[\.*^$()+?{|]/\\&/g')|g" "$TEMP_CONFIG_A" && rm -f "$TEMP_CONFIG_A.tmp"
-    fi
-    rm -f "$INBOUNDS_TEMP" "$ROUTING_TEMP"
+    # Build complete config file directly
+    cat > "$TEMP_CONFIG_A" << EOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [$INBOUNDS_JSON
+  ],
+  "outbounds": [
+    {
+      "tag": "to-b",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$SERVER_B_IP",
+            "port": $TUNNEL_PORT,
+            "users": [
+              { "id": "$UUID", "encryption": "none" }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+STREAM_SETTINGS_PLACEHOLDER
+      }
+    },
+    { "protocol": "freedom", "tag": "direct" }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [$ROUTING_RULES_JSON
+    ]
+  }
+}
+EOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
@@ -1018,8 +999,9 @@ EOF
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG_A"
     
     # Replace streamSettings placeholder with actual settings
-    STREAM_SETTINGS_CONTENT=$(cat "$STREAM_SETTINGS_TEMP" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-    sed -i "s|STREAM_SETTINGS_PLACEHOLDER|$(cat "$STREAM_SETTINGS_TEMP")|g" "$TEMP_CONFIG_A"
+    # Use sed with r command to insert file content (safer for multiline)
+    sed -i "/STREAM_SETTINGS_PLACEHOLDER/r $STREAM_SETTINGS_TEMP" "$TEMP_CONFIG_A"
+    sed -i "/STREAM_SETTINGS_PLACEHOLDER/d" "$TEMP_CONFIG_A"
     
     # Move to final location
     mv "$TEMP_CONFIG_A" /etc/xray/a.json
