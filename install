@@ -222,6 +222,9 @@ restore_nginx_backup() {
 
 # Check Xray version
 check_xray_version() {
+    local UPDATE_AVAILABLE=false
+    local LATEST_VERSION=""
+    
     if command -v xray >/dev/null 2>&1; then
         CURRENT_VERSION=$(xray version | head -1)
         print_info "Current Xray version: ${CYAN}${CURRENT_VERSION}${NC}"
@@ -240,15 +243,138 @@ check_xray_version() {
                         print_success "✅ You have the latest version"
                     else
                         print_warning "⚠️  Update available: ${LATEST_VERSION}"
+                        UPDATE_AVAILABLE=true
                     fi
                 elif echo "$CURRENT_VERSION" | grep -qi "$LATEST_VERSION"; then
                     print_success "✅ You have the latest version"
                 else
                     print_warning "⚠️  Update available: ${LATEST_VERSION}"
+                    UPDATE_AVAILABLE=true
                 fi
             fi
         fi
     fi
+    
+    # Return status via global variable
+    export XRAY_UPDATE_AVAILABLE=$UPDATE_AVAILABLE
+    export XRAY_LATEST_VERSION="$LATEST_VERSION"
+}
+
+# Update Xray to latest version
+update_xray() {
+    local TARGET_VERSION="$1"
+    
+    if [ -z "$TARGET_VERSION" ]; then
+        print_error "Target version not specified"
+        return 1
+    fi
+    
+    print_section "Updating Xray"
+    print_info "Updating Xray to ${CYAN}${TARGET_VERSION}${NC}..."
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) ARCH="64" ;;
+        aarch64|arm64) ARCH="arm64-v8a" ;;
+        armv7l) ARCH="arm32-v7a" ;;
+        *) print_error "Unsupported architecture: $ARCH"; return 1 ;;
+    esac
+    
+    # Create temporary directory
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+    
+    # Download URLs (multiple mirrors)
+    DOWNLOAD_URLS=(
+        "https://github.com/XTLS/Xray-core/releases/download/${TARGET_VERSION}/Xray-linux-${ARCH}.zip"
+        "https://ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/${TARGET_VERSION}/Xray-linux-${ARCH}.zip"
+        "https://mirror.ghproxy.com/https://github.com/XTLS/Xray-core/releases/download/${TARGET_VERSION}/Xray-linux-${ARCH}.zip"
+        "https://download.fastgit.org/XTLS/Xray-core/releases/download/${TARGET_VERSION}/Xray-linux-${ARCH}.zip"
+    )
+    
+    # Try downloading from multiple mirrors
+    DOWNLOAD_SUCCESS=false
+    for url in "${DOWNLOAD_URLS[@]}"; do
+        print_info "Trying to download from: $url"
+        if wget -q --timeout=15 "$url" -O xray.zip || curl -L --connect-timeout 15 "$url" -o xray.zip; then
+            print_success "Downloaded Xray binary successfully"
+            DOWNLOAD_SUCCESS=true
+            break
+        else
+            print_warning "Failed to download from: $url"
+        fi
+    done
+    
+    if [ "$DOWNLOAD_SUCCESS" = false ]; then
+        print_error "Failed to download Xray binary from all mirrors"
+        cd /
+        rm -rf "$TEMP_DIR"
+        return 1
+    fi
+    
+    # Extract archive
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -q xray.zip
+    else
+        print_error "unzip command not found. Please install unzip first."
+        cd /
+        rm -rf "$TEMP_DIR"
+        return 1
+    fi
+    
+    # Stop Xray services if running
+    if systemctl is-active --quiet xray-a 2>/dev/null; then
+        print_info "Stopping xray-a service..."
+        systemctl stop xray-a
+    fi
+    if systemctl is-active --quiet xray-b 2>/dev/null; then
+        print_info "Stopping xray-b service..."
+        systemctl stop xray-b
+    fi
+    if systemctl is-active --quiet xray-c 2>/dev/null; then
+        print_info "Stopping xray-c service..."
+        systemctl stop xray-c
+    fi
+    
+    # Backup old binary
+    if [ -f /usr/local/bin/xray ]; then
+        print_info "Backing up old Xray binary..."
+        cp /usr/local/bin/xray /usr/local/bin/xray.backup.$(date +%Y%m%d_%H%M%S)
+    fi
+    
+    # Install new binary
+    print_info "Installing new Xray binary..."
+    if [ -f xray ]; then
+        cp xray /usr/local/bin/xray
+        chmod +x /usr/local/bin/xray
+        chown root:root /usr/local/bin/xray
+        print_success "Xray updated successfully"
+    else
+        print_error "Xray binary not found in archive"
+        cd /
+        rm -rf "$TEMP_DIR"
+        return 1
+    fi
+    
+    # Verify installation
+    if /usr/local/bin/xray version >/dev/null 2>&1; then
+        NEW_VERSION=$(/usr/local/bin/xray version | head -1)
+        print_success "New Xray version: ${CYAN}${NEW_VERSION}${NC}"
+    else
+        print_error "Failed to verify new Xray installation"
+        cd /
+        rm -rf "$TEMP_DIR"
+        return 1
+    fi
+    
+    # Cleanup
+    cd /
+    rm -rf "$TEMP_DIR"
+    
+    print_success "Xray update completed successfully"
+    print_section_end
+    return 0
 }
 
 # Install Xray offline
@@ -864,6 +990,20 @@ install_server_a() {
     else
         print_success "Xray is already installed"
         check_xray_version
+        
+        # Offer update if available
+        if [ "$XRAY_UPDATE_AVAILABLE" = true ] && [ -n "$XRAY_LATEST_VERSION" ]; then
+            echo
+            if confirm "Do you want to update Xray to ${XRAY_LATEST_VERSION}?"; then
+                if update_xray "$XRAY_LATEST_VERSION"; then
+                    print_success "Xray updated successfully"
+                else
+                    print_error "Failed to update Xray. Continuing with current version..."
+                fi
+            else
+                print_info "Skipping Xray update. Continuing with current version..."
+            fi
+        fi
     fi
     print_section_end
     
@@ -1309,6 +1449,20 @@ install_server_b() {
     else
         print_success "Xray is already installed"
         check_xray_version
+        
+        # Offer update if available
+        if [ "$XRAY_UPDATE_AVAILABLE" = true ] && [ -n "$XRAY_LATEST_VERSION" ]; then
+            echo
+            if confirm "Do you want to update Xray to ${XRAY_LATEST_VERSION}?"; then
+                if update_xray "$XRAY_LATEST_VERSION"; then
+                    print_success "Xray updated successfully"
+                else
+                    print_error "Failed to update Xray. Continuing with current version..."
+                fi
+            else
+                print_info "Skipping Xray update. Continuing with current version..."
+            fi
+        fi
     fi
     print_section_end
     
