@@ -1125,10 +1125,16 @@ EOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        # Server A (outbound) - optimized with performance settings
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "grpc",
         "grpcSettings": {
-          "serviceName": "$TRANSPORT_PATH"
+          "serviceName": "$TRANSPORT_PATH",
+          "multiMode": true,
+          "idle_timeout": 60,
+          "health_check_timeout": 20,
+          "permit_without_stream": false,
+          "initial_windows_size": 65535
         }
 EOF
     fi
@@ -1582,6 +1588,7 @@ EOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        # Server B (inbound) - simpler config, no client-side optimizations
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "grpc",
         "grpcSettings": {

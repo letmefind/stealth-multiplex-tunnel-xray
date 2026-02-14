@@ -331,23 +331,36 @@ Client → Server A → Server B → Server C → Local Services
 **Features:**
 - ✅ CDN compatible
 - ✅ HTTP/2 multiplexing
-- ✅ High performance
+- ✅ High performance (up to 20% improvement with multiMode)
 - ✅ Configurable service name
+- ✅ Optimized with performance settings
 
-**Configuration:**
+**Configuration (Server A - Outbound):**
 ```json
 {
   "network": "grpc",
   "grpcSettings": {
-    "serviceName": "/xray.XrayService"
+    "serviceName": "/xray.XrayService",
+    "multiMode": true,
+    "idle_timeout": 60,
+    "health_check_timeout": 20,
+    "permit_without_stream": false,
+    "initial_windows_size": 65535
   }
 }
 ```
+
+**Performance Settings:**
+- `multiMode`: Enables multi-mode for ~20% performance improvement
+- `idle_timeout`: 60 seconds - triggers health checks when idle
+- `health_check_timeout`: 20 seconds - timeout for health checks
+- `initial_windows_size`: 65535 - optimal window size for HTTP/2 streams
 
 **Use Cases:**
 - High-performance requirements
 - CDN integration
 - Modern applications
+- When maximum throughput is needed
 
 ---
 

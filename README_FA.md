@@ -330,24 +330,37 @@ sudo bash install c    # سرور C (مقصد نهایی)
 
 **ویژگی‌ها:**
 - ✅ سازگار با CDN
-- ✅ Multiplexing HTTP/2
-- ✅ عملکرد بالا
+- ✅ چندگانه HTTP/2
+- ✅ عملکرد بالا (تا 20% بهبود با multiMode)
 - ✅ نام سرویس قابل تنظیم
+- ✅ بهینه شده با تنظیمات عملکردی
 
-**پیکربندی:**
+**پیکربندی (سرور A - خروجی):**
 ```json
 {
   "network": "grpc",
   "grpcSettings": {
-    "serviceName": "/xray.XrayService"
+    "serviceName": "/xray.XrayService",
+    "multiMode": true,
+    "idle_timeout": 60,
+    "health_check_timeout": 20,
+    "permit_without_stream": false,
+    "initial_windows_size": 65535
   }
 }
 ```
+
+**تنظیمات عملکرد:**
+- `multiMode`: فعال‌سازی حالت چندگانه برای بهبود عملکرد تا 20%
+- `idle_timeout`: 60 ثانیه - فعال‌سازی بررسی سلامت در حالت بیکار
+- `health_check_timeout`: 20 ثانیه - تایم‌اوت برای بررسی سلامت
+- `initial_windows_size`: 65535 - اندازه پنجره بهینه برای استریم‌های HTTP/2
 
 **موارد استفاده:**
 - نیازمندی‌های عملکرد بالا
 - یکپارچه‌سازی CDN
 - برنامه‌های مدرن
+- زمانی که حداکثر throughput مورد نیاز است
 
 ---
 
