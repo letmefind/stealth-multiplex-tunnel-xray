@@ -17,8 +17,8 @@ A production-ready, stealth tunnel solution supporting multiple protocols (VLESS
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/stealth-multiplex-tunnel-xray.git
-cd stealth-multiplex-tunnel-xray
+git clone https://github.com/letmefind/Easy-paqet.git
+cd Easy-paqet
 
 # Run the unified installer
 sudo bash install.sh
@@ -32,7 +32,7 @@ sudo bash install.sh
 ## 📁 Project Structure
 
 ```
-stealth-multiplex-tunnel-xray/
+Easy-paqet/
 ├── install.sh                    # Unified installer
 ├── README.md                     # Comprehensive documentation
 ├── .env.example                  # Configuration template

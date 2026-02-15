@@ -6,7 +6,7 @@
 [![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](README_FA.md)
 [![Xray Version](https://img.shields.io/badge/Xray-v26.2.2-success.svg)](https://github.com/XTLS/Xray-core/releases/tag/v26.2.2)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)](https://github.com/letmefind/stealth-multiplex-tunnel-xray)
+[![GitHub Stars](https://img.shields.io/github/stars/letmefind/Easy-paqet?style=social)](https://github.com/letmefind/Easy-paqet)
 
 **A production-ready, high-performance stealth tunnel solution with multiple transport protocols and advanced optimizations**
 
@@ -98,8 +98,8 @@ Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user cou
 
 ```bash
 # Clone the repository
-git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
-cd stealth-multiplex-tunnel-xray
+git clone https://github.com/letmefind/Easy-paqet.git
+cd Easy-paqet
 ```
 
 #### Option 1: Servers with Good Internet Connectivity (Recommended)
@@ -758,7 +758,7 @@ The authors and contributors are not responsible for any misuse of this software
 
 ### Getting Help
 
-- **GitHub Issues**: [Open an issue](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
+- **GitHub Issues**: [Open an issue](https://github.com/letmefind/Easy-paqet/issues)
 - **Documentation**: Check the [documentation](#-documentation) section
 - **Troubleshooting**: Use the [troubleshooting tools](#-troubleshooting)
 

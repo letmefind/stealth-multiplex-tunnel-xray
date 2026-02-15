@@ -6,7 +6,7 @@
 [![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](README_FA.md)
 [![Xray Version](https://img.shields.io/badge/Xray-v26.2.2-success.svg)](https://github.com/XTLS/Xray-core/releases/tag/v26.2.2)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)](https://github.com/letmefind/stealth-multiplex-tunnel-xray)
+[![GitHub Stars](https://img.shields.io/github/stars/letmefind/Easy-paqet?style=social)](https://github.com/letmefind/Easy-paqet)
 
 **راه‌حل تونل استیل آماده تولید با عملکرد بالا و پروتکل‌های انتقال متعدد و بهینه‌سازی‌های پیشرفته**
 
@@ -98,8 +98,8 @@
 
 ```bash
 # کلون کردن مخزن
-git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
-cd stealth-multiplex-tunnel-xray
+git clone https://github.com/letmefind/Easy-paqet.git
+cd Easy-paqet
 ```
 
 #### گزینه 1: سرورهای با اتصال اینترنت مناسب (توصیه می‌شود)
@@ -758,7 +758,7 @@ curl -I http://server-a-ip:443
 
 ### دریافت کمک
 
-- **GitHub Issues**: [باز کردن issue](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
+- **GitHub Issues**: [باز کردن issue](https://github.com/letmefind/Easy-paqet/issues)
 - **مستندات**: بررسی بخش [مستندات](#-مستندات)
 - **عیب‌یابی**: استفاده از [ابزارهای عیب‌یابی](#-عیب‌یابی)
 

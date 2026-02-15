@@ -28,7 +28,7 @@ This project provides a complete, production-ready stealth tunnel solution suppo
 ## Project Structure
 
 ```
-stealth-multiplex-tunnel-xray/
+Easy-paqet/
 ├── README.md                    # Comprehensive documentation
 ├── .env.example                 # Configuration template
 ├── .gitignore                   # Git ignore rules
