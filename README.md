@@ -1,4 +1,4 @@
-# 🚀 Stealth Multiplex Tunnel Xray
+# 🚀 Stealth Multiplex Tunnel - Xray & Paqet
 
 <div align="center">
 
@@ -6,9 +6,9 @@
 [![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](README_FA.md)
 [![Xray Version](https://img.shields.io/badge/Xray-v26.2.2-success.svg)](https://github.com/XTLS/Xray-core/releases/tag/v26.2.2)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/letmefind/Easy-paqet?style=social)](https://github.com/letmefind/Easy-paqet)
+[![GitHub Stars](https://img.shields.io/github/stars/letmefind/stealth-multiplex-tunnel-xray?style=social)](https://github.com/letmefind/stealth-multiplex-tunnel-xray)
 
-**A production-ready, high-performance stealth tunnel solution with multiple transport protocols and advanced optimizations**
+**A unified installer for both Xray and Paqet tunnels - Production-ready, high-performance stealth tunnel solutions**
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Support](#-support)
 
@@ -36,6 +36,9 @@
 
 ## 🎯 Overview
 
+This repository provides a **unified installer** for two powerful tunneling solutions:
+
+### 🚀 Xray Tunnel
 **Stealth Multiplex Tunnel Xray** is a comprehensive, production-ready tunneling solution that provides:
 
 - 🔒 **Maximum Stealth** - Advanced DPI bypass with Reality protocol
@@ -46,11 +49,29 @@
 
 Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user counts and maximum throughput.
 
+### 📦 Paqet Tunnel
+**Paqet Tunnel** is a high-performance packet tunnel solution optimized for:
+
+- ⚡ **High Throughput** - Optimized for high traffic volumes
+- 🔧 **KCP Protocol** - Reliable packet transmission
+- 🌐 **SOCKS5 Support** - Full proxy protocol support
+- 🔍 **MTU Discovery** - Automatic optimal MTU detection
+- 📊 **Port Forwarding** - Flexible port management
+
+**Unified Installation**: Both tunnels can be installed using the same `install` script - simply choose your preferred tunnel type during installation!
+
 ---
 
 ## ✨ Features
 
-### 🚀 Transport Protocols
+### 🎯 Tunnel Types
+
+| Tunnel | Best For | Protocol | Performance | Stealth |
+|--------|----------|----------|-------------|---------|
+| **Xray** | Maximum stealth, DPI bypass | XHTTP/TCP/WS/GRPC | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Paqet** | High throughput, packet forwarding | KCP | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+
+### 🚀 Xray Transport Protocols
 
 | Protocol | Speed | Stealth | CDN Support | TLS | Best For |
 |----------|-------|---------|-------------|-----|----------|
@@ -98,8 +119,42 @@ Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user cou
 
 ```bash
 # Clone the repository
-git clone https://github.com/letmefind/Easy-paqet.git
-cd Easy-paqet
+git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
+cd stealth-multiplex-tunnel-xray
+```
+
+#### Quick Start
+
+```bash
+# Run the unified installer
+sudo bash install
+```
+
+**What happens:**
+1. **Tunnel Type Selection** - Choose between Xray or Paqet tunnel
+2. **Server Type Selection** - Choose Server A (Entry) or Server B (Destination)
+3. **Configuration** - Enter connection details
+4. **Installation** - Automatic installation and configuration
+5. **Optimization** - BBR and TCP buffers optimized
+
+#### Installation Options
+
+```bash
+# Interactive mode (recommended) - shows tunnel type menu
+sudo bash install
+
+# Select Xray tunnel directly
+sudo bash install xray
+sudo bash install xray a    # Xray tunnel on Server A
+sudo bash install xray b    # Xray tunnel on Server B
+
+# Select Paqet tunnel directly
+sudo bash install paqet
+
+# Legacy options (defaults to Xray)
+sudo bash install a    # Xray tunnel on Server A
+sudo bash install b    # Xray tunnel on Server B
+sudo bash install auto # Auto-detect server type (Xray)
 ```
 
 #### Option 1: Servers with Good Internet Connectivity (Recommended)
@@ -107,13 +162,13 @@ cd Easy-paqet
 If your server has direct access to GitHub and good internet speed:
 
 ```bash
-# Run the main installer (it will download Xray automatically)
+# Run the main installer (it will download Xray/Paqet automatically)
 sudo bash install
 ```
 
 **What happens:**
-- The installer automatically downloads Xray from GitHub
-- Installs Xray and all dependencies
+- The installer automatically downloads Xray/Paqet from GitHub
+- Installs tunnel software and all dependencies
 - Configures the tunnel based on your choices
 
 #### Option 2: Servers with Limited Internet (China/Slow Networks)
@@ -121,11 +176,11 @@ sudo bash install
 If your server has limited internet access or cannot access GitHub directly:
 
 ```bash
-# Step 1: Install Xray offline first
+# Step 1: Install Xray offline first (for Xray tunnel only)
 sudo bash install_xray_offline.sh
 
 # Step 2: Then run the main installer
-sudo bash install
+sudo bash install xray
 ```
 
 **What happens:**
@@ -133,34 +188,27 @@ sudo bash install
 - If all mirrors fail, it provides manual installation instructions
 - `install` then uses the already-installed Xray to configure the tunnel
 
-**Why two steps?**
-- `install_xray_offline.sh` handles Xray installation with fallback mirrors
-- `install` handles tunnel configuration (doesn't need to download Xray again)
-
-### Installation Options
-
-```bash
-# Interactive mode (recommended)
-sudo bash install
-
-# Auto-detect server type
-sudo bash install auto
-
-# Specific server type
-sudo bash install a    # Server A (Entry)
-sudo bash install b    # Server B (Intermediate)
-sudo bash install c    # Server C (Final Destination)
-```
+**Note:** For Paqet tunnel, the installer will download Paqet automatically during installation.
 
 ### What Happens During Installation
 
-1. **Server Type Selection** - Choose A, B, or C
-2. **Transport Protocol** - Select XHTTP/TCP/WebSocket/GRPC
-3. **Configuration** - Enter connection details
-4. **Key Generation** - Reality keys generated automatically
-5. **Service Setup** - Systemd services configured
-6. **Optimization** - BBR and TCP buffers optimized
-7. **Firewall** - Rules configured automatically
+#### For Xray Tunnel:
+1. **Tunnel Type Selection** - Choose Xray tunnel
+2. **Server Type Selection** - Choose A, B, or C
+3. **Transport Protocol** - Select XHTTP/TCP/WebSocket/GRPC
+4. **Configuration** - Enter connection details
+5. **Key Generation** - Reality keys generated automatically
+6. **Service Setup** - Systemd services configured
+7. **Optimization** - BBR and TCP buffers optimized
+8. **Firewall** - Rules configured automatically
+
+#### For Paqet Tunnel:
+1. **Tunnel Type Selection** - Choose Paqet tunnel
+2. **Language Selection** - Choose English or Persian
+3. **Main Menu** - Select setup option (Server/Client/Management)
+4. **Configuration** - Enter connection details
+5. **Installation** - Automatic installation and configuration
+6. **MTU Discovery** - Optional optimal MTU detection
 
 ---
 
@@ -233,7 +281,30 @@ Client → Server A → Server B → Server C → Local Services
 
 ---
 
-## 🌐 Transport Protocols
+## 🚀 Tunnel Comparison
+
+### Xray Tunnel vs Paqet Tunnel
+
+| Feature | Xray Tunnel | Paqet Tunnel |
+|---------|-------------|--------------|
+| **Primary Use** | Stealth & DPI bypass | High throughput & port forwarding |
+| **Protocols** | XHTTP, TCP, WebSocket, GRPC | KCP |
+| **Security** | Reality protocol, TLS fingerprinting | Standard encryption |
+| **Stealth Level** | ⭐⭐⭐⭐⭐ (Maximum) | ⭐⭐⭐ (Good) |
+| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **CDN Support** | ✅ (WebSocket/GRPC) | ❌ |
+| **Multi-Port** | ✅ | ✅ |
+| **Multi-Hop** | ✅ (A→B→C) | ❌ |
+| **MTU Optimization** | ✅ (Manual) | ✅ (Automatic) |
+| **Best For** | Maximum stealth, DPI bypass | High traffic, port forwarding |
+
+**Recommendation:**
+- Use **Xray Tunnel** if you need maximum stealth and DPI bypass capabilities
+- Use **Paqet Tunnel** if you need high throughput and port forwarding
+
+---
+
+## 🌐 Xray Transport Protocols
 
 ### 1. XHTTP (SplitHTTP) with Reality ⭐ Recommended
 
@@ -364,7 +435,63 @@ Client → Server A → Server B → Server C → Local Services
 
 ---
 
-## 📦 Installation
+## 📦 Paqet Tunnel
+
+### Overview
+
+Paqet Tunnel is a high-performance packet tunnel solution optimized for high traffic volumes and port forwarding scenarios.
+
+### Features
+
+- ✅ **KCP Protocol** - Reliable packet transmission with congestion control
+- ✅ **SOCKS5 Support** - Full proxy protocol support
+- ✅ **Port Forwarding** - Flexible port management
+- ✅ **MTU Discovery** - Automatic optimal MTU detection (default: 1350)
+- ✅ **Bilingual Interface** - English and Persian support
+- ✅ **Unified Management** - Complete management script included
+
+### Installation
+
+```bash
+# Select Paqet tunnel during installation
+sudo bash install paqet
+
+# Or use interactive mode
+sudo bash install
+# Then select: 2. Paqet Tunnel
+```
+
+### Configuration
+
+Paqet tunnel uses YAML configuration files located in `/etc/paqet/`. The installer will guide you through the setup process.
+
+### MTU Optimization
+
+Paqet tunnel includes automatic MTU discovery:
+- Default MTU: 1350 (optimized for tunnels)
+- Automatic detection available via management script
+- Can be configured per tunnel instance
+
+### Management
+
+```bash
+# Access Paqet management menu
+sudo bash paqet.sh
+
+# Or if installed via install script
+sudo bash /path/to/paqet.sh
+```
+
+**Management Features:**
+- Setup Foreign Server
+- Setup Iran Client
+- Manage Configurations
+- Manage Services
+- Find Optimal MTU
+
+---
+
+## 📦 Xray Installation
 
 ### Step-by-Step Installation
 
@@ -758,7 +885,7 @@ The authors and contributors are not responsible for any misuse of this software
 
 ### Getting Help
 
-- **GitHub Issues**: [Open an issue](https://github.com/letmefind/Easy-paqet/issues)
+- **GitHub Issues**: [Open an issue](https://github.com/letmefind/stealth-multiplex-tunnel-xray/issues)
 - **Documentation**: Check the [documentation](#-documentation) section
 - **Troubleshooting**: Use the [troubleshooting tools](#-troubleshooting)
 
@@ -778,6 +905,6 @@ When reporting issues, please include:
 
 **Made with ❤️ for communication freedom**
 
-[⬆ Back to top](#-stealth-multiplex-tunnel-xray)
+[⬆ Back to top](#-stealth-multiplex-tunnel---xray--paqet)
 
 </div>
