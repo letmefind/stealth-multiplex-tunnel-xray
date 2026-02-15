@@ -3,7 +3,8 @@
 # BBR and TCP Buffer Optimization Script
 # این اسکریپت تنظیمات BBR و TCP Buffering را اعمال می‌کند
 
-set -e
+# Don't exit on error - we'll handle missing sysctl parameters gracefully
+set +e
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,8 +49,16 @@ if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then
     log_info "Current congestion control: $CURRENT_CC"
 fi
 
+# Function to check if sysctl parameter exists
+check_sysctl_exists() {
+    local param="$1"
+    [ -f "/proc/sys/${param//\./\/}" ] 2>/dev/null
+}
+
 # Create sysctl configuration file
 log_info "Creating sysctl configuration file..."
+
+# Start building the config file
 cat > /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
 # BBR Congestion Control
 net.core.default_qdisc=fq
@@ -77,10 +86,6 @@ net.ipv4.tcp_sack=1
 # TCP Fast Open (reduces connection latency)
 net.ipv4.tcp_fastopen=3
 
-# Connection Tracking (for high connection counts)
-net.netfilter.nf_conntrack_max=1000000
-net.ipv4.netfilter.ip_conntrack_max=1000000
-
 # Socket Options
 # Maximum number of pending connections
 net.core.somaxconn=65535
@@ -104,9 +109,6 @@ net.ipv4.tcp_fin_timeout=30
 # TCP Time Wait Reuse (allows reusing TIME_WAIT sockets)
 net.ipv4.tcp_tw_reuse=1
 
-# IP Forwarding (uncomment if needed for routing)
-# net.ipv4.ip_forward=1
-
 # MTU Settings for Packet Tunnel
 # Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
 # This prevents packet fragmentation and improves performance
@@ -115,13 +117,35 @@ net.ipv4.tcp_tw_reuse=1
 net.ipv4.ip_no_pmtu_disc=0
 net.ipv4.tcp_mtu_probing=1
 net.ipv4.tcp_base_mss=1024
+
+# IP Forwarding (uncomment if needed for routing)
+# net.ipv4.ip_forward=1
 EOF
+
+# Add optional connection tracking settings if available
+if check_sysctl_exists "net.netfilter.nf_conntrack_max"; then
+    log_info "Adding nf_conntrack settings (connection tracking available)"
+    cat >> /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
+
+# Connection Tracking (for high connection counts)
+# Only added if nf_conntrack module is loaded
+net.netfilter.nf_conntrack_max=1000000
+EOF
+    # Check for legacy ip_conntrack (older kernels)
+    if check_sysctl_exists "net.ipv4.netfilter.ip_conntrack_max"; then
+        echo "net.ipv4.netfilter.ip_conntrack_max=1000000" >> /etc/sysctl.d/99-xray-optimization.conf
+    fi
+else
+    log_warning "nf_conntrack module not loaded - skipping connection tracking settings"
+    log_info "To enable connection tracking, run: modprobe nf_conntrack"
+fi
 
 log_success "Configuration file created: /etc/sysctl.d/99-xray-optimization.conf"
 
-# Apply sysctl settings
+# Apply sysctl settings (ignore errors for missing parameters)
 log_info "Applying sysctl settings..."
-sysctl --system
+log_info "Note: Some parameters may not exist on your system - this is normal"
+sysctl --system 2>&1 | grep -v "cannot stat" || true
 
 # Verify BBR is enabled
 if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then

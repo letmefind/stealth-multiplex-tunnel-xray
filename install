@@ -646,6 +646,12 @@ configure_bbr_and_tcp() {
         fi
     fi
     
+    # Function to check if sysctl parameter exists
+    check_sysctl_exists() {
+        local param="$1"
+        [ -f "/proc/sys/${param//\./\/}" ] 2>/dev/null
+    }
+    
     # Create comprehensive sysctl configuration
     cat > /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
 # BBR Congestion Control
@@ -666,10 +672,6 @@ net.ipv4.tcp_sack=1
 
 # TCP Fast Open
 net.ipv4.tcp_fastopen=3
-
-# Connection Tracking
-net.netfilter.nf_conntrack_max=1000000
-net.ipv4.netfilter.ip_conntrack_max=1000000
 
 # Socket Options
 net.core.somaxconn=65535
@@ -700,8 +702,20 @@ net.ipv4.tcp_base_mss=1024
 # net.ipv4.ip_forward=1
 EOF
     
-    # Apply sysctl settings
-    sysctl --system >/dev/null 2>&1
+    # Add optional connection tracking settings if available
+    if check_sysctl_exists "net.netfilter.nf_conntrack_max"; then
+        cat >> /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
+
+# Connection Tracking (only if nf_conntrack module is loaded)
+net.netfilter.nf_conntrack_max=1000000
+EOF
+        if check_sysctl_exists "net.ipv4.netfilter.ip_conntrack_max"; then
+            echo "net.ipv4.netfilter.ip_conntrack_max=1000000" >> /etc/sysctl.d/99-xray-optimization.conf
+        fi
+    fi
+    
+    # Apply sysctl settings (ignore errors for missing parameters)
+    sysctl --system >/dev/null 2>&1 || true
     
     # Verify BBR is enabled
     if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then
@@ -736,6 +750,12 @@ configure_bbr_and_tcp() {
         fi
     fi
     
+    # Function to check if sysctl parameter exists
+    check_sysctl_exists() {
+        local param="$1"
+        [ -f "/proc/sys/${param//\./\/}" ] 2>/dev/null
+    }
+    
     # Create comprehensive sysctl configuration
     cat > /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
 # BBR Congestion Control
@@ -756,10 +776,6 @@ net.ipv4.tcp_sack=1
 
 # TCP Fast Open
 net.ipv4.tcp_fastopen=3
-
-# Connection Tracking
-net.netfilter.nf_conntrack_max=1000000
-net.ipv4.netfilter.ip_conntrack_max=1000000
 
 # Socket Options
 net.core.somaxconn=65535
@@ -790,8 +806,20 @@ net.ipv4.tcp_base_mss=1024
 # net.ipv4.ip_forward=1
 EOF
     
-    # Apply sysctl settings
-    sysctl --system >/dev/null 2>&1
+    # Add optional connection tracking settings if available
+    if check_sysctl_exists "net.netfilter.nf_conntrack_max"; then
+        cat >> /etc/sysctl.d/99-xray-optimization.conf << 'EOF'
+
+# Connection Tracking (only if nf_conntrack module is loaded)
+net.netfilter.nf_conntrack_max=1000000
+EOF
+        if check_sysctl_exists "net.ipv4.netfilter.ip_conntrack_max"; then
+            echo "net.ipv4.netfilter.ip_conntrack_max=1000000" >> /etc/sysctl.d/99-xray-optimization.conf
+        fi
+    fi
+    
+    # Apply sysctl settings (ignore errors for missing parameters)
+    sysctl --system >/dev/null 2>&1 || true
     
     # Verify BBR is enabled
     if [ -f /proc/sys/net/ipv4/tcp_congestion_control ]; then
