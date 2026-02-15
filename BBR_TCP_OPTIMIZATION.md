@@ -70,6 +70,12 @@ sudo sysctl -w net.ipv4.tcp_fin_timeout=30
 
 # TCP Tw Reuse
 sudo sysctl -w net.ipv4.tcp_tw_reuse=1
+
+# MTU Settings for Packet Tunnel
+# Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
+sudo sysctl -w net.ipv4.ip_no_pmtu_disc=0
+sudo sysctl -w net.ipv4.tcp_mtu_probing=1
+sudo sysctl -w net.ipv4.tcp_base_mss=1024
 ```
 
 ### 4. ایجاد فایل پایداری (برای اعمال خودکار بعد از reboot)
@@ -116,6 +122,13 @@ net.ipv4.tcp_fin_timeout=30
 
 # TCP Tw Reuse
 net.ipv4.tcp_tw_reuse=1
+
+# MTU Settings for Packet Tunnel
+# Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
+# This prevents packet fragmentation and improves performance
+net.ipv4.ip_no_pmtu_disc=0
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_base_mss=1024
 EOF
 
 # اعمال فایل
@@ -161,6 +174,11 @@ cat /proc/sys/net/ipv4/tcp_fastopen
 # Socket Options
 cat /proc/sys/net/core/somaxconn
 cat /proc/sys/net/core/netdev_max_backlog
+
+# MTU Settings
+cat /proc/sys/net/ipv4/ip_no_pmtu_disc
+cat /proc/sys/net/ipv4/tcp_mtu_probing
+cat /proc/sys/net/ipv4/tcp_base_mss
 ```
 
 ### تست عملکرد BBR
@@ -196,6 +214,13 @@ ss -i -t | grep bbr
 ### Connection Tracking
 - افزایش حداکثر تعداد اتصالات ردیابی شده
 - مناسب برای سرورهای با تعداد کاربران بالا
+
+### MTU Settings for Packet Tunnel
+- **MTU پیش‌فرض**: 1350 بایت (بهینه برای اتصالات VPN/tunnel)
+- **ip_no_pmtu_disc**: 0 - فعال‌سازی Path MTU Discovery
+- **tcp_mtu_probing**: 1 - فعال‌سازی TCP MTU Probing برای بهینه‌سازی خودکار
+- **tcp_base_mss**: 1024 - اندازه پایه MSS برای TCP
+- **نکته**: برای TUN interfaces در Xray، MTU را در تنظیمات TUN تنظیم کنید: `"MTU": 1350`
 
 ## نکات مهم
 

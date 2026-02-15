@@ -106,6 +106,15 @@ net.ipv4.tcp_tw_reuse=1
 
 # IP Forwarding (uncomment if needed for routing)
 # net.ipv4.ip_forward=1
+
+# MTU Settings for Packet Tunnel
+# Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
+# This prevents packet fragmentation and improves performance
+# Note: Actual MTU should be set on the tunnel interface itself
+# For TUN interfaces, configure MTU in Xray TUN settings: "MTU": 1350
+net.ipv4.ip_no_pmtu_disc=0
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_base_mss=1024
 EOF
 
 log_success "Configuration file created: /etc/sysctl.d/99-xray-optimization.conf"

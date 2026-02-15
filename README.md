@@ -458,6 +458,7 @@ sudo bash scripts/apply_bbr_tcp_optimization.sh
 - TCP Fast Open
 - Connection tracking: 1M max
 - Socket options optimized
+- MTU settings: Default 1350 for packet tunnel (prevents fragmentation)
 
 **Full Documentation:** [BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)
 

@@ -458,6 +458,7 @@ sudo bash scripts/apply_bbr_tcp_optimization.sh
 - TCP Fast Open
 - ردیابی اتصال: حداکثر 1M
 - گزینه‌های سوکت بهینه شده
+- تنظیمات MTU: پیش‌فرض 1350 برای packet tunnel (جلوگیری از fragmentation)
 
 **مستندات کامل:** [BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)
 

@@ -689,6 +689,13 @@ net.ipv4.tcp_fin_timeout=30
 # TCP Tw Reuse
 net.ipv4.tcp_tw_reuse=1
 
+# MTU Settings for Packet Tunnel
+# Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
+# This prevents packet fragmentation and improves performance
+net.ipv4.ip_no_pmtu_disc=0
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_base_mss=1024
+
 # IP Forwarding (if needed)
 # net.ipv4.ip_forward=1
 EOF
@@ -771,6 +778,13 @@ net.ipv4.tcp_fin_timeout=30
 
 # TCP Tw Reuse
 net.ipv4.tcp_tw_reuse=1
+
+# MTU Settings for Packet Tunnel
+# Default MTU for packet tunnel: 1350 (optimal for VPN/tunnel connections)
+# This prevents packet fragmentation and improves performance
+net.ipv4.ip_no_pmtu_disc=0
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_base_mss=1024
 
 # IP Forwarding (if needed)
 # net.ipv4.ip_forward=1
