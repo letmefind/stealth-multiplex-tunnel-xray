@@ -248,7 +248,7 @@ check_xray_version() {
         
         # Check for latest version
         if curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest >/dev/null 2>&1; then
-            LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+            LATEST_VERSION=$(curl -s --connect-timeout 5 https://api.github.com/repos/XTLS/Xray-core/releases/latest | grep '"tag_name"' | head -1 | cut -d'"' -f4 | tr -d '\n\r\t' | xargs)
             if [ -n "$LATEST_VERSION" ]; then
                 print_info "Latest Xray version: ${CYAN}${LATEST_VERSION}${NC}"
                 # Extract version number from current version (e.g., "26.2.2" from "Xray 26.2.2")
@@ -274,7 +274,14 @@ check_xray_version() {
     
     # Return status via global variable
     export XRAY_UPDATE_AVAILABLE=$UPDATE_AVAILABLE
-    export XRAY_LATEST_VERSION="$LATEST_VERSION"
+    # Sanitize LATEST_VERSION before exporting (remove newlines and trim whitespace)
+    if [ -n "$LATEST_VERSION" ]; then
+        LATEST_VERSION=$(echo "$LATEST_VERSION" | tr -d '\n\r\t' | xargs)
+    else
+        LATEST_VERSION=""
+    fi
+    XRAY_LATEST_VERSION="$LATEST_VERSION"
+    export XRAY_LATEST_VERSION
 }
 
 # Update Xray to latest version
