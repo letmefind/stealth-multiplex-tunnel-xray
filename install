@@ -3,6 +3,12 @@
 # VLESS+REALITY Tunnel Installation Script
 # Modern Interactive Installation with Beautiful UI
 
+# Ensure we're running bash (not sh)
+if [ -z "$BASH_VERSION" ]; then
+    echo "Error: This script requires bash. Please run with: bash $0" >&2
+    exit 1
+fi
+
 set -e
 
 # Debug mode - uncomment to enable debug output
