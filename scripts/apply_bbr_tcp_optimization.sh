@@ -29,6 +29,19 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Simple confirmation function
+confirm() {
+    local prompt="$1"
+    local default="${2:-n}"
+    echo -e "${YELLOW}${prompt}${NC} ${DIM}[y/N]${NC}: \c"
+    read -r response
+    if [ "$default" = "y" ]; then
+        [[ ! "$response" =~ ^[Nn]$ ]] && return 0 || return 1
+    else
+        [[ "$response" =~ ^[Yy]$ ]] && return 0 || return 1
+    fi
+}
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
     log_error "Please run as root (use sudo)"
@@ -53,6 +66,84 @@ fi
 check_sysctl_exists() {
     local param="$1"
     [ -f "/proc/sys/${param//\./\/}" ] 2>/dev/null
+}
+
+# Function to find optimal MTU for tunnel
+find_optimal_mtu() {
+    local target_host="${1:-8.8.8.8}"
+    local start_mtu="${2:-1500}"
+    local min_mtu="${3:-1280}"
+    local optimal_mtu=1350  # Default for tunnel
+    
+    log_info "Finding optimal MTU (testing against $target_host)..."
+    log_info "This may take a moment..."
+    
+    # Check if ping is available
+    if ! command -v ping >/dev/null 2>&1; then
+        log_warning "ping command not found, using default MTU: $optimal_mtu"
+        echo "$optimal_mtu"
+        return 0
+    fi
+    
+    # Test MTU values from start_mtu down to min_mtu
+    local test_mtu=$start_mtu
+    local found_optimal=false
+    
+    # For tunnel, we typically want MTU around 1350-1400
+    # So we'll test common tunnel MTU values first
+    local tunnel_mtus=(1500 1450 1400 1350 1300 1280)
+    
+    for mtu in "${tunnel_mtus[@]}"; do
+        # Calculate packet size (MTU - IP header - ICMP header = MTU - 28)
+        local packet_size=$((mtu - 28))
+        
+        if [ $packet_size -lt 0 ]; then
+            continue
+        fi
+        
+        # Test with ping (don't fragment flag)
+        if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
+            optimal_mtu=$mtu
+            found_optimal=true
+            log_success "Found working MTU: $optimal_mtu"
+            break
+        fi
+    done
+    
+    # If no optimal found in tunnel range, try binary search
+    if [ "$found_optimal" = false ]; then
+        log_info "Testing MTU range..."
+        local low=$min_mtu
+        local high=$start_mtu
+        local best_mtu=$min_mtu
+        
+        while [ $low -le $high ]; do
+            local mid=$(( (low + high) / 2 ))
+            local packet_size=$((mid - 28))
+            
+            if [ $packet_size -lt 0 ]; then
+                low=$((mid + 1))
+                continue
+            fi
+            
+            if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
+                best_mtu=$mid
+                optimal_mtu=$mid
+                low=$((mid + 1))
+            else
+                high=$((mid - 1))
+            fi
+        done
+        
+        if [ $best_mtu -gt $min_mtu ]; then
+            optimal_mtu=$best_mtu
+            log_success "Found optimal MTU: $optimal_mtu"
+        else
+            log_warning "Could not determine optimal MTU, using default: $optimal_mtu"
+        fi
+    fi
+    
+    echo "$optimal_mtu"
 }
 
 # Create sysctl configuration file
@@ -170,6 +261,19 @@ echo "  TCP Fast Open: $(cat /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null || echo
 log_success "TCP buffer optimizations configured successfully!"
 log_info "Settings will persist across reboots."
 echo ""
+
+# Optional: Find and display optimal MTU
+if confirm "Do you want to find optimal MTU for your connection?" "n"; then
+    OPTIMAL_MTU=$(find_optimal_mtu)
+    log_success "Optimal MTU: $OPTIMAL_MTU"
+    log_info "You can use this MTU value in your tunnel configuration"
+    log_info "For Xray TUN interface, set: \"MTU\": $OPTIMAL_MTU"
+fi
+
+echo ""
 log_info "To verify BBR is working, run:"
 echo "  sysctl net.ipv4.tcp_congestion_control"
 echo "  ss -i | grep bbr"
+echo ""
+log_info "To find optimal MTU manually, run:"
+echo "  find_optimal_mtu [target_host] [start_mtu] [min_mtu]"

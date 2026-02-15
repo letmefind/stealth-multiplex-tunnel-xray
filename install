@@ -734,6 +734,14 @@ EOF
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}TCP Buffers:${NC} Optimized for high bandwidth"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Window Scaling:${NC} Enabled"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Fast Open:${NC} Enabled"
+    
+    # Optional: Find and display optimal MTU
+    if confirm "Do you want to find optimal MTU for your tunnel connection?"; then
+        OPTIMAL_MTU=$(find_optimal_mtu)
+        print_success "Optimal MTU: ${CYAN}${OPTIMAL_MTU}${NC}"
+        print_info "You can use this MTU value in your tunnel configuration"
+        print_info "For Xray TUN interface, set: ${CYAN}\"MTU\": ${OPTIMAL_MTU}${NC}"
+    fi
 }
 
 # Function to configure BBR and TCP optimizations
@@ -838,6 +846,14 @@ EOF
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}TCP Buffers:${NC} Optimized for high bandwidth"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Window Scaling:${NC} Enabled"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Fast Open:${NC} Enabled"
+    
+    # Optional: Find and display optimal MTU
+    if confirm "Do you want to find optimal MTU for your tunnel connection?"; then
+        OPTIMAL_MTU=$(find_optimal_mtu)
+        print_success "Optimal MTU: ${CYAN}${OPTIMAL_MTU}${NC}"
+        print_info "You can use this MTU value in your tunnel configuration"
+        print_info "For Xray TUN interface, set: ${CYAN}\"MTU\": ${OPTIMAL_MTU}${NC}"
+    fi
 }
 
 # Function to install Server A
