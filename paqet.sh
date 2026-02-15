@@ -34,6 +34,7 @@ SERVICE_DIR="/etc/systemd/system"
 PACKAGE_DIR="/root/paqet-packages"
 LANG_SELECTED=""
 
+
 # متغیرهای زبان - فارسی
 declare -A MSG_FA
 MSG_FA[title]="Paqet Manager - مدیریت یکپارچه"
@@ -72,28 +73,15 @@ MSG_EN[invalid_choice]="Invalid choice"
 MSG_EN[press_enter]="Press Enter to continue"
 MSG_EN[goodbye]="Goodbye! 👋"
 
-# Function to find optimal MTU for tunnel (embedded in script)
-find_optimal_mtu() {
+# Function to find optimal MTU for tunnel (embedded in script - internal use only)
+find_optimal_mtu_embedded() {
     local target_host="${1:-8.8.8.8}"
     local start_mtu="${2:-1500}"
     local min_mtu="${3:-1280}"
     local optimal_mtu=1350  # Default for tunnel
     
-    if [ "$LANG_SELECTED" == "en" ]; then
-        print_info "Finding optimal MTU (testing against $target_host)..."
-        print_info "This may take a moment..."
-    else
-        print_info "در حال یافتن MTU بهینه (تست با $target_host)..."
-        print_info "این ممکن است کمی زمان ببرد..."
-    fi
-    
     # Check if ping is available
     if ! command -v ping >/dev/null 2>&1; then
-        if [ "$LANG_SELECTED" == "en" ]; then
-            print_warning "ping command not found, using default MTU: $optimal_mtu"
-        else
-            print_warning "دستور ping پیدا نشد، استفاده از MTU پیش‌فرض: $optimal_mtu"
-        fi
         echo "$optimal_mtu"
         return 0
     fi
@@ -117,22 +105,12 @@ find_optimal_mtu() {
         if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
             optimal_mtu=$mtu
             found_optimal=true
-            if [ "$LANG_SELECTED" == "en" ]; then
-                print_success "Found working MTU: $optimal_mtu"
-            else
-                print_success "MTU کارآمد پیدا شد: $optimal_mtu"
-            fi
             break
         fi
     done
     
     # If no optimal found in tunnel range, try binary search
     if [ "$found_optimal" = false ]; then
-        if [ "$LANG_SELECTED" == "en" ]; then
-            print_info "Testing MTU range..."
-        else
-            print_info "در حال تست محدوده MTU..."
-        fi
         local low=$min_mtu
         local high=$start_mtu
         local best_mtu=$min_mtu
@@ -155,155 +133,14 @@ find_optimal_mtu() {
             fi
         done
         
-        if [ $best_mtu -gt $min_mtu ]; then
-            optimal_mtu=$best_mtu
-            if [ "$LANG_SELECTED" == "en" ]; then
-                print_success "Found optimal MTU: $optimal_mtu"
-            else
-                print_success "MTU بهینه پیدا شد: $optimal_mtu"
-            fi
-        else
-            if [ "$LANG_SELECTED" == "en" ]; then
-                print_warning "Could not determine optimal MTU, using default: $optimal_mtu"
-            else
-                print_warning "نمی‌توان MTU بهینه را تعیین کرد، استفاده از پیش‌فرض: $optimal_mtu"
-            fi
+        if [ $best_mtu -le $min_mtu ]; then
+            optimal_mtu=1350  # Use default
         fi
     fi
     
     echo "$optimal_mtu"
 }
 
-# Create /root/find_optimal_mtu.sh script for compatibility
-create_find_optimal_mtu_script() {
-    if [ "$LANG_SELECTED" == "en" ]; then
-        print_info "Creating find_optimal_mtu.sh script..."
-    else
-        print_info "در حال ایجاد اسکریپت find_optimal_mtu.sh..."
-    fi
-    
-    cat > /root/find_optimal_mtu.sh << 'MTU_SCRIPT_EOF'
-#!/bin/bash
-
-# Find Optimal MTU Script
-# Embedded in paqet.sh - no need to download separately
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Function to find optimal MTU for tunnel
-find_optimal_mtu() {
-    local target_host="${1:-8.8.8.8}"
-    local start_mtu="${2:-1500}"
-    local min_mtu="${3:-1280}"
-    local optimal_mtu=1350  # Default for tunnel
-    
-    log_info "Finding optimal MTU (testing against $target_host)..."
-    log_info "This may take a moment..."
-    
-    # Check if ping is available
-    if ! command -v ping >/dev/null 2>&1; then
-        log_warning "ping command not found, using default MTU: $optimal_mtu"
-        echo "$optimal_mtu"
-        return 0
-    fi
-    
-    # Test MTU values from start_mtu down to min_mtu
-    local found_optimal=false
-    
-    # For tunnel, we typically want MTU around 1350-1400
-    # So we'll test common tunnel MTU values first
-    local tunnel_mtus=(1500 1450 1400 1350 1300 1280)
-    
-    for mtu in "${tunnel_mtus[@]}"; do
-        # Calculate packet size (MTU - IP header - ICMP header = MTU - 28)
-        local packet_size=$((mtu - 28))
-        
-        if [ $packet_size -lt 0 ]; then
-            continue
-        fi
-        
-        # Test with ping (don't fragment flag)
-        if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
-            optimal_mtu=$mtu
-            found_optimal=true
-            log_success "Found working MTU: $optimal_mtu"
-            break
-        fi
-    done
-    
-    # If no optimal found in tunnel range, try binary search
-    if [ "$found_optimal" = false ]; then
-        log_info "Testing MTU range..."
-        local low=$min_mtu
-        local high=$start_mtu
-        local best_mtu=$min_mtu
-        
-        while [ $low -le $high ]; do
-            local mid=$(( (low + high) / 2 ))
-            local packet_size=$((mid - 28))
-            
-            if [ $packet_size -lt 0 ]; then
-                low=$((mid + 1))
-                continue
-            fi
-            
-            if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
-                best_mtu=$mid
-                optimal_mtu=$mid
-                low=$((mid + 1))
-            else
-                high=$((mid - 1))
-            fi
-        done
-        
-        if [ $best_mtu -gt $min_mtu ]; then
-            optimal_mtu=$best_mtu
-            log_success "Found optimal MTU: $optimal_mtu"
-        else
-            log_warning "Could not determine optimal MTU, using default: $optimal_mtu"
-        fi
-    fi
-    
-    echo "$optimal_mtu"
-}
-
-# Main execution (if run directly, not sourced)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # Script is being executed directly
-    OPTIMAL_MTU=$(find_optimal_mtu "$@")
-    echo "$OPTIMAL_MTU"
-fi
-MTU_SCRIPT_EOF
-    
-    chmod +x /root/find_optimal_mtu.sh
-    
-    if [ "$LANG_SELECTED" == "en" ]; then
-        print_success "Created /root/find_optimal_mtu.sh"
-    else
-        print_success "فایل /root/find_optimal_mtu.sh ایجاد شد"
-    fi
-}
 
 # تابع انتخاب زبان
 select_language() {
@@ -421,42 +258,68 @@ check_root() {
  fi
 }
 
-# MTU Discovery Function
-mtu_discovery() {
+# MTU Discovery Function - تمام کارایی در داخل همین تابع (بدون نیاز به فایل خارجی)
+find_optimal_mtu() {
+ print_header
+ print_separator
+ if [ "$LANG_SELECTED" == "en" ]; then
+ echo -e "${BOLD}🔍 Find Optimal MTU${NC}"
+ else
+ echo -e "${BOLD}🔍 یافتن MTU بهینه${NC}"
+ fi
  print_separator
  echo ""
+ 
  if [ "$LANG_SELECTED" == "en" ]; then
- print_info "🔍 Find Optimal MTU"
+ print_info "Running MTU discovery tool..."
+ echo ""
+ print_info "This will test different MTU values to find the optimal one."
+ print_info "The recommended MTU will be displayed for use in tunnel configuration."
+ echo ""
  else
- print_info "🔍 یافتن MTU بهینه"
+ print_info "اجرای ابزار یافتن MTU..."
+ echo ""
+ print_info "این ابزار مقادیر مختلف MTU را تست می‌کند تا بهینه‌ترین را پیدا کند."
+ print_info "MTU پیشنهادی برای استفاده در کانفیگ تونل نمایش داده می‌شود."
+ echo ""
  fi
+ 
+ # Use the embedded find_optimal_mtu function directly (no external file needed)
+ # Note: This function is defined at the top of the script
+ local target_host="8.8.8.8"
+ local optimal_mtu_result
+ 
+ # Call the embedded function (defined at line 76)
+ optimal_mtu_result=$(find_optimal_mtu_embedded "$target_host")
+ 
+ echo ""
  print_separator
  echo ""
  
- # Use embedded function directly (no need for external script)
+ if [ -n "$optimal_mtu_result" ] && [ "$optimal_mtu_result" -gt 0 ] 2>/dev/null; then
  if [ "$LANG_SELECTED" == "en" ]; then
- print_info "Running MTU discovery using embedded function..."
+ print_success "MTU discovery completed!"
+ echo ""
+ print_success "Optimal MTU: ${BOLD}$optimal_mtu_result${NC}"
+ print_info "You can now use this MTU value when setting up tunnels."
+ print_info "The default MTU in this script is set to 1350 for tunnels."
  else
- print_info "در حال اجرای یافتن MTU با استفاده از تابع تعبیه شده..."
+ print_success "یافتن MTU به پایان رسید!"
+ echo ""
+ print_success "MTU بهینه: ${BOLD}$optimal_mtu_result${NC}"
+ print_info "اکنون می‌توانید از این مقدار MTU هنگام راه‌اندازی تونل‌ها استفاده کنید."
+ print_info "MTU پیش‌فرض در این اسکریپت برای تونل‌ها روی 1350 تنظیم شده است."
  fi
- echo ""
- 
- # Run the embedded function directly
- OPTIMAL_MTU=$(find_optimal_mtu)
- 
- echo ""
+ else
  if [ "$LANG_SELECTED" == "en" ]; then
- print_success "Optimal MTU: ${BOLD}$OPTIMAL_MTU${NC}"
- print_info "You can use this MTU value in your tunnel configuration"
- print_info "For Paqet tunnel, set MTU to: ${BOLD}$OPTIMAL_MTU${NC}"
+ print_warning "MTU discovery completed with warnings"
+ print_info "Using default MTU: 1350"
  else
- print_success "MTU بهینه: ${BOLD}$OPTIMAL_MTU${NC}"
- print_info "می‌توانید از این مقدار MTU در تنظیمات تانل خود استفاده کنید"
- print_info "برای تانل Paqet، MTU را روی: ${BOLD}$OPTIMAL_MTU${NC} تنظیم کنید"
+ print_warning "یافتن MTU با هشدار به پایان رسید"
+ print_info "استفاده از MTU پیش‌فرض: 1350"
  fi
- 
- # Also create /root/find_optimal_mtu.sh for compatibility with other scripts
- create_find_optimal_mtu_script
+ optimal_mtu_result=1350
+ fi
  
  echo ""
  if [ "$LANG_SELECTED" == "en" ]; then
@@ -520,7 +383,7 @@ main_menu() {
  read -p "$(t press_enter)" < /dev/tty
  ;;
  5)
- mtu_discovery
+ find_optimal_mtu
  ;;
  6)
  if [ "$LANG_SELECTED" == "en" ]; then
@@ -544,145 +407,13 @@ main_menu() {
  done
 }
 
-# Create /root/find_optimal_mtu.sh script immediately (before language selection)
-# This ensures it's available for any code that checks for it early
-create_find_optimal_mtu_script_early() {
-    # Create script silently (without language-dependent messages)
-    cat > /root/find_optimal_mtu.sh << 'MTU_SCRIPT_EOF'
-#!/bin/bash
-
-# Find Optimal MTU Script
-# Embedded in paqet.sh - no need to download separately
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Function to find optimal MTU for tunnel
-find_optimal_mtu() {
-    local target_host="${1:-8.8.8.8}"
-    local start_mtu="${2:-1500}"
-    local min_mtu="${3:-1280}"
-    local optimal_mtu=1350  # Default for tunnel
-    
-    log_info "Finding optimal MTU (testing against $target_host)..."
-    log_info "This may take a moment..."
-    
-    # Check if ping is available
-    if ! command -v ping >/dev/null 2>&1; then
-        log_warning "ping command not found, using default MTU: $optimal_mtu"
-        echo "$optimal_mtu"
-        return 0
-    fi
-    
-    # Test MTU values from start_mtu down to min_mtu
-    local found_optimal=false
-    
-    # For tunnel, we typically want MTU around 1350-1400
-    # So we'll test common tunnel MTU values first
-    local tunnel_mtus=(1500 1450 1400 1350 1300 1280)
-    
-    for mtu in "${tunnel_mtus[@]}"; do
-        # Calculate packet size (MTU - IP header - ICMP header = MTU - 28)
-        local packet_size=$((mtu - 28))
-        
-        if [ $packet_size -lt 0 ]; then
-            continue
-        fi
-        
-        # Test with ping (don't fragment flag)
-        if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
-            optimal_mtu=$mtu
-            found_optimal=true
-            log_success "Found working MTU: $optimal_mtu"
-            break
-        fi
-    done
-    
-    # If no optimal found in tunnel range, try binary search
-    if [ "$found_optimal" = false ]; then
-        log_info "Testing MTU range..."
-        local low=$min_mtu
-        local high=$start_mtu
-        local best_mtu=$min_mtu
-        
-        while [ $low -le $high ]; do
-            local mid=$(( (low + high) / 2 ))
-            local packet_size=$((mid - 28))
-            
-            if [ $packet_size -lt 0 ]; then
-                low=$((mid + 1))
-                continue
-            fi
-            
-            if ping -c 1 -M do -s $packet_size -W 2 "$target_host" >/dev/null 2>&1; then
-                best_mtu=$mid
-                optimal_mtu=$mid
-                low=$((mid + 1))
-            else
-                high=$((mid - 1))
-            fi
-        done
-        
-        if [ $best_mtu -gt $min_mtu ]; then
-            optimal_mtu=$best_mtu
-            log_success "Found optimal MTU: $optimal_mtu"
-        else
-            log_warning "Could not determine optimal MTU, using default: $optimal_mtu"
-        fi
-    fi
-    
-    echo "$optimal_mtu"
-}
-
-# Main execution (if run directly, not sourced)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # Script is being executed directly
-    OPTIMAL_MTU=$(find_optimal_mtu "$@")
-    echo "$OPTIMAL_MTU"
-fi
-MTU_SCRIPT_EOF
-    
-    chmod +x /root/find_optimal_mtu.sh 2>/dev/null || true
-}
-
 # Main function
 main() {
- # Create find_optimal_mtu.sh script FIRST (before anything else)
- # This ensures it's available immediately for any code that checks for it
- if [ "$EUID" -eq 0 ]; then
-     create_find_optimal_mtu_script_early
- fi
- 
  # Select language first
  select_language
  
  # Check root
  check_root
- 
- # Create find_optimal_mtu.sh script on startup for compatibility (if not already created)
- if [ ! -f "/root/find_optimal_mtu.sh" ]; then
-     create_find_optimal_mtu_script
- fi
  
  # Show main menu
  main_menu
