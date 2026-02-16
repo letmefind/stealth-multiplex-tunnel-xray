@@ -1578,7 +1578,7 @@ install_server_a() {
             "address": "$SERVER_B_IP",
             "port": $TUNNEL_PORT,
             "users": [
-              { "id": "$UUID", "encryption": "none" }
+              { "id": "$UUID", "encryption": "none"$FLOW_CONFIG }
             ]
           }
         ]
@@ -1679,10 +1679,18 @@ EOF
 EOF
     fi
     
+    # Determine if flow is needed (only for TCP transport)
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
+    else
+        FLOW_CONFIG=""
+    fi
+    
     # Replace placeholders
     sed -i "s/SERVER_B_IP_PLACEHOLDER/$SERVER_B_IP/g" "$TEMP_CONFIG_A"
     sed -i "s/TUNNEL_PORT_PLACEHOLDER/$TUNNEL_PORT/g" "$TEMP_CONFIG_A"
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG_A"
+    sed -i "s/\$FLOW_CONFIG/$FLOW_CONFIG/g" "$TEMP_CONFIG_A"
     
     # Replace streamSettings placeholder with actual settings
     # Use sed with r command to insert file content (safer for multiline)
@@ -2048,7 +2056,7 @@ install_server_b() {
       "protocol": "vless",
       "settings": {
         "clients": [
-          { "id": "UUID_PLACEHOLDER" }
+          { "id": "UUID_PLACEHOLDER"$FLOW_CONFIG }
         ],
         "decryption": "none"
       },
@@ -2179,6 +2187,13 @@ EOF
 EOF
     fi
     
+    # Determine if flow is needed (only for TCP transport)
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
+    else
+        FLOW_CONFIG=""
+    fi
+    
     # Replace streamSettings placeholder
     sed -i "/STREAM_SETTINGS_PLACEHOLDER/r $STREAM_SETTINGS_TEMP" "$TEMP_CONFIG"
     sed -i "/STREAM_SETTINGS_PLACEHOLDER/d" "$TEMP_CONFIG"
@@ -2186,6 +2201,7 @@ EOF
     # Replace other placeholders
     sed -i "s/TUNNEL_PORT_PLACEHOLDER/$TUNNEL_PORT/g" "$TEMP_CONFIG"
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG"
+    sed -i "s/\$FLOW_CONFIG/$FLOW_CONFIG/g" "$TEMP_CONFIG"
     
     # Cleanup
     rm -f "$STREAM_SETTINGS_TEMP"
