@@ -1558,6 +1558,29 @@ install_server_a() {
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
     
+    # Determine if flow is needed (only for TCP transport)
+    # Flow must be set BEFORE building the config file
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
+    else
+        FLOW_CONFIG=""
+    fi
+    
+    # Generate seed for post-quantum cryptography (optional but recommended)
+    # Seed is only needed for TCP transport with flow
+    SEED_CONFIG=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && command -v xray >/dev/null 2>&1; then
+        SEED_OUTPUT=$(xray mlkem768 2>&1)
+        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+        if [ -z "$SEED" ]; then
+            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
+        fi
+        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
+            SEED_CONFIG=", \"seed\": \"$SEED\""
+            print_info "Generated seed for post-quantum cryptography"
+        fi
+    fi
+    
     # Build complete config file directly
     cat > "$TEMP_CONFIG_A" << EOF
 {
@@ -1578,7 +1601,7 @@ install_server_a() {
             "address": "$SERVER_B_IP",
             "port": $TUNNEL_PORT,
             "users": [
-              { "id": "$UUID", "encryption": "none"$FLOW_CONFIG }
+              { "id": "$UUID", "encryption": "none"$FLOW_CONFIG$SEED_CONFIG }
             ]
           }
         ]
@@ -1679,14 +1702,7 @@ EOF
 EOF
     fi
     
-    # Determine if flow is needed (only for TCP transport)
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
-        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
-    else
-        FLOW_CONFIG=""
-    fi
-    
-    # Replace placeholders
+    # Replace placeholders (FLOW_CONFIG and SEED_CONFIG already set above)
     sed -i "s/SERVER_B_IP_PLACEHOLDER/$SERVER_B_IP/g" "$TEMP_CONFIG_A"
     sed -i "s/TUNNEL_PORT_PLACEHOLDER/$TUNNEL_PORT/g" "$TEMP_CONFIG_A"
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG_A"
@@ -2056,7 +2072,7 @@ install_server_b() {
       "protocol": "vless",
       "settings": {
         "clients": [
-          { "id": "UUID_PLACEHOLDER"$FLOW_CONFIG }
+          { "id": "UUID_PLACEHOLDER"$FLOW_CONFIG$SEED_CONFIG }
         ],
         "decryption": "none"
       },
@@ -2188,10 +2204,26 @@ EOF
     fi
     
     # Determine if flow is needed (only for TCP transport)
+    # Flow must be set BEFORE building the config file
     if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
         FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
     else
         FLOW_CONFIG=""
+    fi
+    
+    # Generate seed for post-quantum cryptography (optional but recommended)
+    # Seed is only needed for TCP transport with flow
+    SEED_CONFIG=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && command -v xray >/dev/null 2>&1; then
+        SEED_OUTPUT=$(xray mlkem768 2>&1)
+        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+        if [ -z "$SEED" ]; then
+            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
+        fi
+        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
+            SEED_CONFIG=", \"seed\": \"$SEED\""
+            print_info "Generated seed for post-quantum cryptography"
+        fi
     fi
     
     # Replace streamSettings placeholder
@@ -2202,6 +2234,7 @@ EOF
     sed -i "s/TUNNEL_PORT_PLACEHOLDER/$TUNNEL_PORT/g" "$TEMP_CONFIG"
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG"
     sed -i "s/\$FLOW_CONFIG/$FLOW_CONFIG/g" "$TEMP_CONFIG"
+    sed -i "s/\$SEED_CONFIG/$SEED_CONFIG/g" "$TEMP_CONFIG"
     
     # Cleanup
     rm -f "$STREAM_SETTINGS_TEMP"
