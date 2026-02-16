@@ -575,49 +575,43 @@ generate_reality_keys() {
     # Generate keys using xray - always generate new keys
     KEYS=$(xray x25519 2>&1)
     
-    # Parse public key - try multiple methods
-    PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public key:" | awk '{print $NF}' | head -1)
-    if [ -z "$PUBLIC_KEY" ]; then
-        PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public" | awk '{print $3}' | head -1)
-    fi
-    if [ -z "$PUBLIC_KEY" ]; then
-        # Try to extract base64-like string (43-44 chars)
-        PUBLIC_KEY=$(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}' | head -1)
+    # Parse keys - xray outputs: "Private key: ..." and "Public key: ..."
+    # Method 1: Try exact format match
+    PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private key:" | sed 's/.*Private key:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+    PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public key:" | sed 's/.*Public key:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+    
+    # Method 2: If Method 1 failed, try awk with different field numbers
+    if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+        PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private" | awk '{for(i=3;i<=NF;i++) printf "%s", $i (i<NF?" ":""); print ""}' | head -1 | xargs)
+        PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public" | awk '{for(i=3;i<=NF;i++) printf "%s", $i (i<NF?" ":""); print ""}' | head -1 | xargs)
     fi
     
-    # Parse private key - try multiple methods
-    PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private key:" | awk '{print $NF}' | head -1)
-    if [ -z "$PRIVATE_KEY" ]; then
-        PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private" | awk '{print $3}' | head -1)
-    fi
-    if [ -z "$PRIVATE_KEY" ]; then
-        # Try to extract base64-like string (43-44 chars) - take the last one
-        PRIVATE_KEY=$(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}' | tail -1)
-    fi
-    
-    # Validate keys format (should be base64-like, 43-44 characters)
-    if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ] || [ ${#PUBLIC_KEY} -lt 40 ] || [ ${#PRIVATE_KEY} -lt 40 ]; then
-        print_warning "Failed to parse keys from xray output, trying alternative method..."
-        # Try reading from stderr if stdout is empty
-        KEYS=$(xray x25519 2>&1)
-        PUBLIC_KEY=$(echo "$KEYS" | grep -E "Public|public" | awk '{print $NF}' | head -1)
-        PRIVATE_KEY=$(echo "$KEYS" | grep -E "Private|private" | awk '{print $NF}' | head -1)
-        
-        # If still failed, try to extract any base64 strings
-        if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
-            ALL_KEYS=($(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}'))
-            if [ ${#ALL_KEYS[@]} -ge 2 ]; then
-                PUBLIC_KEY="${ALL_KEYS[0]}"
-                PRIVATE_KEY="${ALL_KEYS[1]}"
-            fi
+    # Method 3: Extract base64-like strings (supports base64url format with - and _)
+    if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+        # Extract all base64/base64url strings (43-44 chars, may contain - and _)
+        ALL_KEYS=($(echo "$KEYS" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | grep -v '^$'))
+        if [ ${#ALL_KEYS[@]} -ge 2 ]; then
+            # First key is usually private, second is public
+            PRIVATE_KEY="${ALL_KEYS[0]}"
+            PUBLIC_KEY="${ALL_KEYS[1]}"
         fi
     fi
     
-    # Final check - if still invalid, error out
+    # Validate keys format and ensure they are different
     if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ] || [ ${#PUBLIC_KEY} -lt 40 ] || [ ${#PRIVATE_KEY} -lt 40 ]; then
-        print_error "Failed to generate Reality keys. xray x25519 output:"
-        echo "$KEYS" | head -5
+        print_error "Failed to parse Reality keys from xray output."
+        print_error "xray x25519 output was:"
+        echo "$KEYS"
         print_error "Please ensure xray is properly installed and working."
+        exit 1
+    fi
+    
+    # Ensure keys are different (they should never be the same)
+    if [ "$PUBLIC_KEY" = "$PRIVATE_KEY" ]; then
+        print_error "Error: Public key and Private key are identical. This should never happen."
+        print_error "xray x25519 output was:"
+        echo "$KEYS"
+        print_error "Please try running the installer again."
         exit 1
     fi
     
