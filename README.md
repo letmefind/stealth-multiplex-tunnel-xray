@@ -346,7 +346,7 @@ Client → Server A → Server B → Server C → Local Services
 - `scMinPostsIntervalMs`: 50ms (reduced CPU usage)
 - `xPaddingBytes`: 0 (reduced RAM usage)
 - `keepaliveperiod`: 120s (reduced connection overhead)
-- `mode`: Paket-up (optimal for SplitHTTP)
+- `mode`: Packet-up (optimal for SplitHTTP)
 
 ### 2. TCP Raw
 
