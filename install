@@ -566,41 +566,69 @@ EOF
 
 # Function to generate Reality keys
 generate_reality_keys() {
-    if command -v xray >/dev/null 2>&1; then
-        KEYS=$(xray x25519 2>/dev/null)
-        PUBLIC_KEY=$(echo "$KEYS" | grep "Public key:" | cut -d' ' -f3)
-        PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
-        
-        # Generate single short ID
-        SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
-        SHORT_IDS="\"$SHORT_ID\""
-        
-        # Debug: Check if keys were parsed correctly
-        if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
-            print_warning "Failed to parse Reality keys, using default keys"
-            PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
-            PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-            SHORT_ID="db78ea236c7e33f5"
-            SHORT_IDS="\"$SHORT_ID\""
-        else
-            print_success "Generated Reality keys successfully"
-        fi
-        
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
-    else
-        print_warning "Xray not found, using default keys"
-        PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
-        PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-        SHORT_ID="db78ea236c7e33f5"
-        SHORT_IDS="\"$SHORT_ID\""
-        
-        print_success "Using default Reality keys"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+    if ! command -v xray >/dev/null 2>&1; then
+        print_error "Xray not found. Cannot generate Reality keys."
+        print_error "Please install Xray first or run the installer with Xray already installed."
+        exit 1
     fi
+    
+    # Generate keys using xray - always generate new keys
+    KEYS=$(xray x25519 2>&1)
+    
+    # Parse public key - try multiple methods
+    PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public key:" | awk '{print $NF}' | head -1)
+    if [ -z "$PUBLIC_KEY" ]; then
+        PUBLIC_KEY=$(echo "$KEYS" | grep -i "Public" | awk '{print $3}' | head -1)
+    fi
+    if [ -z "$PUBLIC_KEY" ]; then
+        # Try to extract base64-like string (43-44 chars)
+        PUBLIC_KEY=$(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}' | head -1)
+    fi
+    
+    # Parse private key - try multiple methods
+    PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private key:" | awk '{print $NF}' | head -1)
+    if [ -z "$PRIVATE_KEY" ]; then
+        PRIVATE_KEY=$(echo "$KEYS" | grep -i "Private" | awk '{print $3}' | head -1)
+    fi
+    if [ -z "$PRIVATE_KEY" ]; then
+        # Try to extract base64-like string (43-44 chars) - take the last one
+        PRIVATE_KEY=$(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}' | tail -1)
+    fi
+    
+    # Validate keys format (should be base64-like, 43-44 characters)
+    if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ] || [ ${#PUBLIC_KEY} -lt 40 ] || [ ${#PRIVATE_KEY} -lt 40 ]; then
+        print_warning "Failed to parse keys from xray output, trying alternative method..."
+        # Try reading from stderr if stdout is empty
+        KEYS=$(xray x25519 2>&1)
+        PUBLIC_KEY=$(echo "$KEYS" | grep -E "Public|public" | awk '{print $NF}' | head -1)
+        PRIVATE_KEY=$(echo "$KEYS" | grep -E "Private|private" | awk '{print $NF}' | head -1)
+        
+        # If still failed, try to extract any base64 strings
+        if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
+            ALL_KEYS=($(echo "$KEYS" | grep -oE '[A-Za-z0-9+/]{43}={0,1}'))
+            if [ ${#ALL_KEYS[@]} -ge 2 ]; then
+                PUBLIC_KEY="${ALL_KEYS[0]}"
+                PRIVATE_KEY="${ALL_KEYS[1]}"
+            fi
+        fi
+    fi
+    
+    # Final check - if still invalid, error out
+    if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ] || [ ${#PUBLIC_KEY} -lt 40 ] || [ ${#PRIVATE_KEY} -lt 40 ]; then
+        print_error "Failed to generate Reality keys. xray x25519 output:"
+        echo "$KEYS" | head -5
+        print_error "Please ensure xray is properly installed and working."
+        exit 1
+    fi
+    
+    # Generate single short ID (always new)
+    SHORT_ID=$(openssl rand -hex 8 2>/dev/null || head -c 8 /dev/urandom | xxd -p 2>/dev/null || echo $(date +%s | sha256sum | cut -c1-16))
+    SHORT_IDS="\"$SHORT_ID\""
+    
+    print_success "Generated new Reality keys successfully"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
     
     # Export the variables so they're available globally
     export PUBLIC_KEY
