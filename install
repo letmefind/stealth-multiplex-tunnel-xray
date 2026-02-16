@@ -1558,18 +1558,18 @@ install_server_a() {
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
     
-    # Determine if flow is needed (only for TCP transport)
+    # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
     # Flow must be set BEFORE building the config file
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
         FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
     else
         FLOW_CONFIG=""
     fi
     
     # Generate seed for post-quantum cryptography (optional but recommended)
-    # Seed is only needed for TCP transport with flow
+    # Seed is only needed for TCP + Reality (when flow is used)
     SEED_CONFIG=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && command -v xray >/dev/null 2>&1; then
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
         SEED_OUTPUT=$(xray mlkem768 2>&1)
         SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
         if [ -z "$SEED" ]; then
@@ -2203,18 +2203,18 @@ EOF
 EOF
     fi
     
-    # Determine if flow is needed (only for TCP transport)
+    # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
     # Flow must be set BEFORE building the config file
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
         FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
     else
         FLOW_CONFIG=""
     fi
     
     # Generate seed for post-quantum cryptography (optional but recommended)
-    # Seed is only needed for TCP transport with flow
+    # Seed is only needed for TCP + Reality (when flow is used)
     SEED_CONFIG=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && command -v xray >/dev/null 2>&1; then
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
         SEED_OUTPUT=$(xray mlkem768 2>&1)
         SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
         if [ -z "$SEED" ]; then
