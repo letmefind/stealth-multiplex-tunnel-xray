@@ -1625,9 +1625,38 @@ EOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
-        "network": "tcp"
+        if [ "$USE_REALITY" = true ]; then
+            # TCP + Reality configuration for Server A (outbound)
+            FIRST_SHORT_ID="$SHORT_ID"
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "$SERVER_NAME",
+          "publicKey": "$PUBLIC_KEY",
+          "shortId": "$FIRST_SHORT_ID",
+          "fingerprint": "chrome",
+          "spiderX": "/"
+        },
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": {
+            "type": "none"
+          }
+        }
 EOF
+        else
+            # TCP Raw (no encryption)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "tcp",
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": {
+            "type": "none"
+          }
+        }
+EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
