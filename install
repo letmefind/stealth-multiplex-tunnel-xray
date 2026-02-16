@@ -1351,9 +1351,9 @@ install_server_a() {
     # Question 3: Transport Protocol Selection
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} Which transport protocol do you want to use?"
     echo -e "${DIM}Select the transport protocol for the tunnel connection.${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- Stealth HTTP-based transport (recommended)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- Stealth HTTP-based transport (recommended)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP connection (fastest, no encryption)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP with XTLS Vision${NC} ${DIM}- TCP with xtls-rprx-vision flow${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption (stealth + fast)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-5, default: 1]${NC}: \c"
@@ -1364,39 +1364,30 @@ install_server_a() {
         1)
             TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=true
-            USE_XTLS_VISION=false
             ;;
         2)
             TRANSPORT_PROTOCOL="tcp"
             USE_REALITY=false
-            USE_XTLS_VISION=false
             ;;
         3)
             TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=false
-            USE_XTLS_VISION=true
+            USE_REALITY=true
             ;;
         4)
             TRANSPORT_PROTOCOL="ws"
             USE_REALITY=false
-            USE_XTLS_VISION=false
             ;;
         5)
             TRANSPORT_PROTOCOL="grpc"
             USE_REALITY=false
-            USE_XTLS_VISION=false
             ;;
         *)
-            print_warning "Invalid choice, using XHTTP (SplitHTTP)"
+            print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
             TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=true
-            USE_XTLS_VISION=false
             ;;
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
-    if [ "$USE_XTLS_VISION" = true ]; then
-        print_success "XTLS Vision Flow: ${CYAN}Enabled${NC}"
-    fi
     
     # Question 4: Client Ports (ports that Server A will listen on)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} Which ports should Server A listen on for client connections?"
@@ -1787,9 +1778,9 @@ install_server_b() {
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What transport protocol was used on Server A?"
     echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP with XTLS Vision${NC} ${DIM}- TCP with xtls-rprx-vision flow${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
@@ -1800,37 +1791,34 @@ install_server_b() {
     case $TRANSPORT_CHOICE in
         1)
             TRANSPORT_PROTOCOL="splithttp"
-            USE_XTLS_VISION=false
+            USE_REALITY=true
             ;;
         2)
             TRANSPORT_PROTOCOL="tcp"
-            USE_XTLS_VISION=false
+            USE_REALITY=false
             ;;
         3)
             TRANSPORT_PROTOCOL="tcp"
-            USE_XTLS_VISION=true
+            USE_REALITY=true
             ;;
         4)
             TRANSPORT_PROTOCOL="ws"
-            USE_XTLS_VISION=false
+            USE_REALITY=false
             ;;
         5)
             TRANSPORT_PROTOCOL="grpc"
-            USE_XTLS_VISION=false
+            USE_REALITY=false
             ;;
         *)
-            print_warning "Invalid choice, using XHTTP (SplitHTTP)"
+            print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
             TRANSPORT_PROTOCOL="splithttp"
-            USE_XTLS_VISION=false
+            USE_REALITY=true
             ;;
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
-    if [ "$USE_XTLS_VISION" = true ]; then
-        print_success "XTLS Vision Flow: ${CYAN}Enabled${NC}"
-    fi
     
-    # Question 3: Private Key (only if using Reality/splithttp)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    # Question 3: Private Key (only if using Reality)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Private Key from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
@@ -1865,8 +1853,8 @@ install_server_b() {
         TRANSPORT_PATH=""
     fi
     
-    # Question 5: Short IDs (only if using Reality/splithttp)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    # Question 5: Short IDs (only if using Reality)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What is the Short ID from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Short ID: \c"
@@ -1883,8 +1871,8 @@ install_server_b() {
         SERVER_B_SHORT_IDS=""
     fi
     
-    # Question 5/6: Server Name (only if using Reality/splithttp)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    # Question 5/6: Server Name (only if using Reality)
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What is the Server Name from Server A installation?"
         echo -e "${DIM}This is the Reality server name (SNI) you used on Server A.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
@@ -1896,7 +1884,7 @@ install_server_b() {
     fi
     
     # Tunnel Port from Server A (question number depends on transport protocol)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         QUESTION_NUM="7"
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="5"
@@ -2113,27 +2101,9 @@ ENDEOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
-        if [ "$USE_XTLS_VISION" = true ]; then
-            # TCP with XTLS Vision flow (Server B inbound)
-            cat > "$STREAM_SETTINGS_TEMP" << EOF
-        "network": "tcp",
-        "security": "xtls",
-        "xtlsSettings": {
-          "flow": "xtls-rprx-vision"
-        },
-        "tcpSettings": {
-          "acceptProxyProtocol": false,
-          "header": {
-            "type": "none"
-          }
-        }
-EOF
-        else
-            # TCP Raw (no encryption)
-            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "tcp"
 EOF
-        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
