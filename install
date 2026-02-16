@@ -2101,9 +2101,38 @@ ENDEOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
-        "network": "tcp"
+        if [ "$USE_REALITY" = true ]; then
+            # TCP + Reality configuration for Server B (inbound)
+            FORMATTED_SHORT_ID=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$SERVER_NAME"],
+          "privateKey": "$SERVER_B_PRIVATE_KEY",
+          "shortIds": ["$FORMATTED_SHORT_ID"]
+        },
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": {
+            "type": "none"
+          }
+        }
 EOF
+        else
+            # TCP Raw (no encryption)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "tcp",
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": {
+            "type": "none"
+          }
+        }
+EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
