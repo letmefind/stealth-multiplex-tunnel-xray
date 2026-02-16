@@ -330,7 +330,7 @@ Client → Server A → Server B → Server C → Local Services
   },
   "splithttpSettings": {
     "path": "/assets",
-    "mode": "Paket-up",
+    "mode": "Packet-up",
     "scMaxEachPostBytes": 2097152,
     "scMaxConcurrentPosts": 4,
     "scMinPostsIntervalMs": 50,
@@ -557,7 +557,7 @@ Optimized for high user counts and CPU/RAM efficiency:
 {
   "splithttpSettings": {
     "path": "/assets",
-    "mode": "Paket-up",
+    "mode": "Packet-up",
     "scMaxEachPostBytes": 2097152,      // 2MB - Reduced overhead
     "scMaxConcurrentPosts": 4,          // Reduced CPU usage
     "scMinPostsIntervalMs": 50,         // Reduced CPU usage
@@ -613,7 +613,7 @@ sudo bash scripts/apply_bbr_tcp_optimization.sh
 
 ### Recommended Settings for High User Counts
 
-1. **SplitHTTP Mode**: `Paket-up` (optimal for SplitHTTP)
+1. **SplitHTTP Mode**: `Packet-up` (optimal for SplitHTTP)
 2. **xPaddingBytes**: `0` (reduces RAM usage)
 3. **scMaxConcurrentPosts**: `4` (reduces CPU usage)
 4. **scMinPostsIntervalMs**: `50` (reduces CPU usage)
