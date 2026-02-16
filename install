@@ -1577,13 +1577,15 @@ EOF
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        # Extract first short ID for Server A outbound (client side uses shortId, not shortIds)
+        FIRST_SHORT_ID=$(echo "$SHORT_IDS" | sed 's/,.*//' | sed 's/"//g' | xargs)
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "splithttp",
         "security": "reality",
         "realitySettings": {
           "serverName": "$SERVER_NAME",
           "publicKey": "$PUBLIC_KEY",
-          "shortIds": [$SHORT_IDS],
+          "shortId": "$FIRST_SHORT_ID",
           "fingerprint": "chrome",
           "spiderX": "/"
         },
