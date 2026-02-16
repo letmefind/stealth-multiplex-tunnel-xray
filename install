@@ -1353,9 +1353,10 @@ install_server_a() {
     echo -e "${DIM}Select the transport protocol for the tunnel connection.${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- Stealth HTTP-based transport (recommended)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP connection (fastest, no encryption)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-4, default: 1]${NC}: \c"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP with XTLS Vision${NC} ${DIM}- TCP with xtls-rprx-vision flow${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-5, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
@@ -1363,26 +1364,39 @@ install_server_a() {
         1)
             TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=true
+            USE_XTLS_VISION=false
             ;;
         2)
             TRANSPORT_PROTOCOL="tcp"
             USE_REALITY=false
+            USE_XTLS_VISION=false
             ;;
         3)
-            TRANSPORT_PROTOCOL="ws"
+            TRANSPORT_PROTOCOL="tcp"
             USE_REALITY=false
+            USE_XTLS_VISION=true
             ;;
         4)
+            TRANSPORT_PROTOCOL="ws"
+            USE_REALITY=false
+            USE_XTLS_VISION=false
+            ;;
+        5)
             TRANSPORT_PROTOCOL="grpc"
             USE_REALITY=false
+            USE_XTLS_VISION=false
             ;;
         *)
             print_warning "Invalid choice, using XHTTP (SplitHTTP)"
             TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=true
+            USE_XTLS_VISION=false
             ;;
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    if [ "$USE_XTLS_VISION" = true ]; then
+        print_success "XTLS Vision Flow: ${CYAN}Enabled${NC}"
+    fi
     
     # Question 4: Client Ports (ports that Server A will listen on)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} Which ports should Server A listen on for client connections?"
@@ -1775,32 +1789,45 @@ install_server_b() {
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP with XTLS Vision${NC} ${DIM}- TCP with xtls-rprx-vision flow${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-4, default: 1]${NC}: \c"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-5, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
     case $TRANSPORT_CHOICE in
         1)
             TRANSPORT_PROTOCOL="splithttp"
+            USE_XTLS_VISION=false
             ;;
         2)
             TRANSPORT_PROTOCOL="tcp"
+            USE_XTLS_VISION=false
             ;;
         3)
-            TRANSPORT_PROTOCOL="ws"
+            TRANSPORT_PROTOCOL="tcp"
+            USE_XTLS_VISION=true
             ;;
         4)
+            TRANSPORT_PROTOCOL="ws"
+            USE_XTLS_VISION=false
+            ;;
+        5)
             TRANSPORT_PROTOCOL="grpc"
+            USE_XTLS_VISION=false
             ;;
         *)
             print_warning "Invalid choice, using XHTTP (SplitHTTP)"
             TRANSPORT_PROTOCOL="splithttp"
+            USE_XTLS_VISION=false
             ;;
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    if [ "$USE_XTLS_VISION" = true ]; then
+        print_success "XTLS Vision Flow: ${CYAN}Enabled${NC}"
+    fi
     
     # Question 3: Private Key (only if using Reality/splithttp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2086,9 +2113,27 @@ ENDEOF
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        if [ "$USE_XTLS_VISION" = true ]; then
+            # TCP with XTLS Vision flow (Server B inbound)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "tcp",
+        "security": "xtls",
+        "xtlsSettings": {
+          "flow": "xtls-rprx-vision"
+        },
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": {
+            "type": "none"
+          }
+        }
+EOF
+        else
+            # TCP Raw (no encryption)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "tcp"
 EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
