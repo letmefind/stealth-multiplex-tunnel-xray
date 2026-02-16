@@ -571,45 +571,41 @@ generate_reality_keys() {
         PUBLIC_KEY=$(echo "$KEYS" | grep "Public key:" | cut -d' ' -f3)
         PRIVATE_KEY=$(echo "$KEYS" | grep "Private key:" | cut -d' ' -f3)
         
-        # Generate 20 different short IDs
-        SHORT_IDS=""
-        for i in {1..20}; do
-            SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
-            if [ $i -eq 1 ]; then
-                SHORT_IDS="\"$SHORT_ID\""
-            else
-                SHORT_IDS="$SHORT_IDS, \"$SHORT_ID\""
-            fi
-        done
+        # Generate single short ID
+        SHORT_ID=$(openssl rand -hex 8 2>/dev/null)
+        SHORT_IDS="\"$SHORT_ID\""
         
         # Debug: Check if keys were parsed correctly
         if [ -z "$PUBLIC_KEY" ] || [ -z "$PRIVATE_KEY" ]; then
             print_warning "Failed to parse Reality keys, using default keys"
             PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
             PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-            SHORT_IDS="\"db78ea236c7e33f5\", \"a1b2c3d4e5f67890\", \"1234567890abcdef\", \"fedcba0987654321\", \"1111222233334444\", \"5555666677778888\", \"9999aaaabbbbcccc\", \"ddddeeeeffff0000\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\", \"02468ace13579bdf\", \"fdb97531eca86420\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\""
+            SHORT_ID="db78ea236c7e33f5"
+            SHORT_IDS="\"$SHORT_ID\""
         else
             print_success "Generated Reality keys successfully"
         fi
         
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short IDs (20):${NC} ${CYAN}Generated 20 different short IDs${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
     else
         print_warning "Xray not found, using default keys"
         PUBLIC_KEY="wwgbwD3pK6aBzxtMzAyAdzV8430zraDqrCrH7tivDV4"
         PRIVATE_KEY="kEHlrW7KE0TxG_UhhOwE2YzMbzGlWign5rSrcweFVkY"
-        SHORT_IDS="\"db78ea236c7e33f5\", \"a1b2c3d4e5f67890\", \"1234567890abcdef\", \"fedcba0987654321\", \"1111222233334444\", \"5555666677778888\", \"9999aaaabbbbcccc\", \"ddddeeeeffff0000\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\", \"02468ace13579bdf\", \"fdb97531eca86420\", \"0123456789abcdef\", \"fedcba9876543210\", \"abcdef0123456789\", \"9876543210fedcba\", \"13579bdf2468ace0\""
+        SHORT_ID="db78ea236c7e33f5"
+        SHORT_IDS="\"$SHORT_ID\""
         
         print_success "Using default Reality keys"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short IDs (20):${NC} ${CYAN}Using 20 default short IDs${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
     fi
     
     # Export the variables so they're available globally
     export PUBLIC_KEY
     export PRIVATE_KEY
+    export SHORT_ID
     export SHORT_IDS
 }
 
@@ -1458,7 +1454,7 @@ install_server_a() {
         print_config_item "Server Name" "$SERVER_NAME"
         print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
         print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
-        print_short_ids "Short IDs (20 different)" "$SHORT_IDS"
+        print_config_item "Short ID" "$SHORT_ID"
     fi
     print_config_item "UUID" "$UUID"
     print_section_end
@@ -1577,8 +1573,8 @@ EOF
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        # Extract first short ID for Server A outbound (client side uses shortId, not shortIds)
-        FIRST_SHORT_ID=$(echo "$SHORT_IDS" | sed 's/,.*//' | sed 's/"//g' | xargs)
+        # Use the single short ID for Server A outbound (client side uses shortId, not shortIds)
+        FIRST_SHORT_ID="$SHORT_ID"
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "splithttp",
         "security": "reality",
@@ -1714,7 +1710,7 @@ EOF
     fi
     if [ "$USE_REALITY" = true ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server B):${NC} ${CYAN}${PRIVATE_KEY}${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short IDs (20 different):${NC} ${CYAN}${SHORT_IDS}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
     fi
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
@@ -1822,15 +1818,18 @@ install_server_b() {
     
     # Question 5: Short IDs (only if using Reality/splithttp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What are the Short IDs from Server A installation?"
-        echo -e "${DIM}This was generated and shown to you during Server A setup (20 different short IDs).${NC}"
-        echo -e "${CYAN}${ARROW}${NC} Enter Short IDs (comma-separated): \c"
-        read SERVER_B_SHORT_IDS
-        if [ -z "$SERVER_B_SHORT_IDS" ]; then
-            print_error "Short IDs are required. Please enter the Short IDs from Server A."
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What is the Short ID from Server A installation?"
+        echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter Short ID: \c"
+        read SERVER_B_SHORT_ID
+        if [ -z "$SERVER_B_SHORT_ID" ]; then
+            print_error "Short ID is required. Please enter the Short ID from Server A."
             exit 1
         fi
-        print_success "Short IDs: ${CYAN}${SERVER_B_SHORT_IDS}${NC}"
+        # Remove quotes if user entered them
+        SERVER_B_SHORT_ID=$(echo "$SERVER_B_SHORT_ID" | sed 's/"//g' | xargs)
+        SERVER_B_SHORT_IDS="\"$SERVER_B_SHORT_ID\""
+        print_success "Short ID: ${CYAN}${SERVER_B_SHORT_ID}${NC}"
     else
         SERVER_B_SHORT_IDS=""
     fi
@@ -1922,7 +1921,7 @@ install_server_b() {
     fi
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
-        print_short_ids "Short IDs (20 different)" "$SERVER_B_SHORT_IDS"
+        print_config_item "Short ID" "$SERVER_B_SHORT_ID"
         print_config_item "Server Name" "$SERVER_NAME"
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
@@ -2040,8 +2039,8 @@ ENDEOF
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        # Format short IDs properly
-        FORMATTED_SHORT_IDS=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/[[:space:]]*,[[:space:]]*/,/g' | sed 's/,/\n/g' | sed 's/^/"/;s/$/"/' | tr '\n' ',' | sed 's/,$//')
+        # Format short ID properly (Server B uses shortIds array, but with single value)
+        FORMATTED_SHORT_ID=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
         cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "splithttp",
         "security": "reality",
@@ -2050,7 +2049,7 @@ ENDEOF
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortIds": [$FORMATTED_SHORT_IDS]
+          "shortIds": ["$FORMATTED_SHORT_ID"]
         },
         "splithttpSettings": {
           "path": "/assets",
