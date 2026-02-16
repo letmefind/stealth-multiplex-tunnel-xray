@@ -1594,7 +1594,7 @@ EOF
           "noGRPCHeader": true,
           "xPaddingBytes": 0,
           "keepaliveperiod": 120,
-          "mode": "Packet-up"
+          "mode": "packet-up"
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
@@ -2060,7 +2060,7 @@ ENDEOF
           "noGRPCHeader": true,
           "xPaddingBytes": 0,
           "keepaliveperiod": 120,
-          "mode": "Packet-up"
+          "mode": "packet-up"
         }
 EOF
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
