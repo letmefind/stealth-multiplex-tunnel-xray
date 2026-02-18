@@ -61,6 +61,9 @@ show_tunnel_type_menu() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Supports: KCP protocol, SOCKS5, Port Forwarding${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Features: Optimized for high traffic, MTU discovery${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Check Xray Version${NC} ${DIM}- Check specific Xray version${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Check if a specific version is newer than current${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
     print_section_end
 }
 
@@ -2780,7 +2783,7 @@ main() {
     elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|server-a|server-b|auto|tunnel|dest|destination)$ ]]; then
         # Show tunnel type menu
         show_tunnel_type_menu
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-2]${NC}"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
         echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
         read tunnel_choice
         
@@ -2790,6 +2793,9 @@ main() {
                 ;;
             2)
                 TUNNEL_TYPE="paqet"
+                ;;
+            3)
+                TUNNEL_TYPE="check-version"
                 ;;
             *)
                 print_error "Invalid choice"
@@ -2851,6 +2857,21 @@ main() {
                 exit 1
                 ;;
         esac
+    fi
+    
+    # Handle version check option
+    if [ "$TUNNEL_TYPE" = "check-version" ]; then
+        print_section "Check Xray Version"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter Xray version to check:${NC}"
+        echo -e "${DIM}Enter version number (e.g., v1.8.4 or 1.8.4)${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter version: \c"
+        read VERSION_TO_CHECK
+        if [ -z "$VERSION_TO_CHECK" ]; then
+            print_error "Version not specified"
+            exit 1
+        fi
+        check_specific_xray_version "$VERSION_TO_CHECK"
+        exit 0
     fi
     
     print_info "Selected server type: Server $SERVER_TYPE"
