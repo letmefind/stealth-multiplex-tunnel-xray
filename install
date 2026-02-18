@@ -1729,21 +1729,9 @@ install_server_a() {
         install_xray_offline
     else
         print_success "Xray is already installed"
-        check_xray_version
-        
-        # Offer update if available
-        if [ "$XRAY_UPDATE_AVAILABLE" = true ] && [ -n "$XRAY_LATEST_VERSION" ]; then
-            echo
-            if confirm "Do you want to update Xray to ${XRAY_LATEST_VERSION}?"; then
-                if update_xray "$XRAY_LATEST_VERSION"; then
-                    print_success "Xray updated successfully"
-                else
-                    print_error "Failed to update Xray. Continuing with current version..."
-                fi
-            else
-                print_info "Skipping Xray update. Continuing with current version..."
-            fi
-        fi
+        CURRENT_VERSION=$(xray version | head -1)
+        print_info "Current Xray version: ${CYAN}${CURRENT_VERSION}${NC}"
+        print_info "Version check skipped during installation (use option 3 in main menu to check for updates)"
     fi
     print_section_end
     
