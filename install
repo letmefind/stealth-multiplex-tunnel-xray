@@ -639,7 +639,16 @@ generate_reality_keys() {
 # Function to validate port
 validate_port() {
     local port="$1"
-    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    # Check if port is a number
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        return 1
+    fi
+    # Check if port is in valid range (1-65535)
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        return 1
+    fi
+    # Reject system ports (1-10) as they are reserved
+    if [ "$port" -ge 1 ] && [ "$port" -le 10 ]; then
         return 1
     fi
     return 0
@@ -1349,7 +1358,11 @@ install_server_a() {
     TUNNEL_PORT="${TUNNEL_PORT:-8081}"
     
     while ! validate_port "$TUNNEL_PORT"; do
-        print_error "Invalid port number. Please enter a port between 1-65535"
+        if [ "$TUNNEL_PORT" -ge 1 ] && [ "$TUNNEL_PORT" -le 10 ]; then
+            print_error "Invalid port number. System ports 1-10 are reserved. Please enter a port between 11-65535"
+        else
+            print_error "Invalid port number. Please enter a port between 11-65535"
+        fi
         echo -e "${CYAN}${ARROW}${NC} Enter tunnel port ${DIM}[8081]${NC}: \c"
         read TUNNEL_PORT
         TUNNEL_PORT="${TUNNEL_PORT:-8081}"
@@ -1414,8 +1427,12 @@ install_server_a() {
     # Validate all ports
     IFS=',' read -ra PORT_ARRAY <<< "$CLIENT_PORTS_INPUT"
     VALID_PORTS=""
+    INVALID_COUNT=0
     for port in "${PORT_ARRAY[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
+        if [ -z "$port" ]; then
+            continue
+        fi
         if validate_port "$port"; then
             if [ -z "$VALID_PORTS" ]; then
                 VALID_PORTS="$port"
@@ -1423,7 +1440,12 @@ install_server_a() {
                 VALID_PORTS="$VALID_PORTS,$port"
             fi
         else
-            print_error "Invalid port: $port (skipping)"
+            INVALID_COUNT=$((INVALID_COUNT + 1))
+            if [ "$port" -ge 1 ] && [ "$port" -le 10 ]; then
+                print_error "Invalid port: $port (system ports 1-10 are reserved, skipping)"
+            else
+                print_error "Invalid port: $port (must be between 11-65535, skipping)"
+            fi
         fi
     done
     
@@ -1432,6 +1454,9 @@ install_server_a() {
         CLIENT_PORTS="80,443,8080,8443"
     else
         CLIENT_PORTS="$VALID_PORTS"
+        if [ "$INVALID_COUNT" -gt 0 ]; then
+            print_warning "Some ports were invalid and skipped. Using valid ports: $CLIENT_PORTS"
+        fi
     fi
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
     
@@ -2160,7 +2185,11 @@ install_server_b() {
     TUNNEL_PORT="${TUNNEL_PORT:-8081}"
     
     while ! validate_port "$TUNNEL_PORT"; do
-        print_error "Invalid port number. Please enter a port between 1-65535"
+        if [ "$TUNNEL_PORT" -ge 1 ] && [ "$TUNNEL_PORT" -le 10 ]; then
+            print_error "Invalid port number. System ports 1-10 are reserved. Please enter a port between 11-65535"
+        else
+            print_error "Invalid port number. Please enter a port between 11-65535"
+        fi
         echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8081]${NC}: \c"
         read TUNNEL_PORT
         TUNNEL_PORT="${TUNNEL_PORT:-8081}"
@@ -2193,8 +2222,12 @@ install_server_b() {
     # Validate all ports
     IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
     VALID_PORTS=""
+    INVALID_COUNT=0
     for port in "${PORT_ARRAY[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
+        if [ -z "$port" ]; then
+            continue
+        fi
         if validate_port "$port"; then
             if [ -z "$VALID_PORTS" ]; then
                 VALID_PORTS="$port"
@@ -2202,7 +2235,12 @@ install_server_b() {
                 VALID_PORTS="$VALID_PORTS,$port"
             fi
         else
-            print_error "Invalid port: $port"
+            INVALID_COUNT=$((INVALID_COUNT + 1))
+            if [ "$port" -ge 1 ] && [ "$port" -le 10 ]; then
+                print_error "Invalid port: $port (system ports 1-10 are reserved, skipping)"
+            else
+                print_error "Invalid port: $port (must be between 11-65535, skipping)"
+            fi
         fi
     done
     
@@ -2211,6 +2249,9 @@ install_server_b() {
         ASSIGNED_PORTS="80,8080,8443"
     else
         ASSIGNED_PORTS="$VALID_PORTS"
+        if [ "$INVALID_COUNT" -gt 0 ]; then
+            print_warning "Some ports were invalid and skipped. Using valid ports: $ASSIGNED_PORTS"
+        fi
     fi
     print_success "Ports to forward: ${CYAN}${ASSIGNED_PORTS}${NC}"
     print_info "Traffic will be forwarded to 127.0.0.1:<same-port>"
