@@ -1574,6 +1574,11 @@ install_server_a() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
+    # Set proper permissions for log directory
+    # Allow xray service to write logs
+    chown -R root:root /var/log/xray
+    chmod -R 755 /var/log/xray
+    
     # Generate Server A configuration - build JSON directly without placeholders
     TEMP_CONFIG_A=$(mktemp)
     
@@ -1788,12 +1793,15 @@ Documentation=https://github.com/xtls
 After=network.target nss-lookup.target
 
 [Service]
-User=nobody
+Type=simple
+User=root
+Group=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 ExecStart=/usr/local/bin/xray run -config /etc/xray/a.json
 Restart=on-failure
+RestartSec=5s
 RestartPreventExitStatus=23
 LimitNPROC=10000
 LimitNOFILE=1000000
@@ -2154,6 +2162,11 @@ install_server_b() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
+    # Set proper permissions for log directory
+    # Allow xray service (running as root) to write logs
+    chown -R root:root /var/log/xray
+    chmod -R 755 /var/log/xray
+    
     # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
     # Flow must be set BEFORE building the config file
     if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
@@ -2358,12 +2371,15 @@ Documentation=https://github.com/xtls
 After=network.target nss-lookup.target
 
 [Service]
-User=nobody
+Type=simple
+User=root
+Group=root
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 ExecStart=/usr/local/bin/xray run -config /etc/xray/b.json
 Restart=on-failure
+RestartSec=5s
 RestartPreventExitStatus=23
 LimitNPROC=10000
 LimitNOFILE=1000000
