@@ -1360,11 +1360,12 @@ install_server_a() {
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} Which transport protocol do you want to use?"
     echo -e "${DIM}Select the transport protocol for the tunnel connection.${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- Stealth HTTP-based transport (recommended)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP connection (fastest, no encryption)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption (stealth + fast)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-5, default: 1]${NC}: \c"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- HTTP-based transport without Reality (fast + CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP connection (fastest, no encryption)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption (stealth + fast)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-6, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
@@ -1374,18 +1375,22 @@ install_server_a() {
             USE_REALITY=true
             ;;
         2)
-            TRANSPORT_PROTOCOL="tcp"
+            TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=false
             ;;
         3)
             TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=true
+            USE_REALITY=false
             ;;
         4)
+            TRANSPORT_PROTOCOL="tcp"
+            USE_REALITY=true
+            ;;
+        5)
             TRANSPORT_PROTOCOL="ws"
             USE_REALITY=false
             ;;
-        5)
+        6)
             TRANSPORT_PROTOCOL="grpc"
             USE_REALITY=false
             ;;
@@ -1431,35 +1436,42 @@ install_server_a() {
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
     
     # Question 5: Domain (for WebSocket/XHTTP) or Path (for GRPC) or Server Name (for Reality)
-    if [ "$USE_REALITY" = true ]; then
-        # For XHTTP (SplitHTTP) + Reality, ask for domain name for CDN support
-        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What domain name should be used for XHTTP tunnel?"
-            echo -e "${DIM}XHTTP requires a domain name (not IP) for CDN support and maximum speed.${NC}"
-            echo -e "${DIM}This domain should point to Server B's IP address.${NC}"
-            echo -e "${CYAN}${ARROW}${NC} Enter domain name (e.g., example.com): \c"
-            read XHTTP_DOMAIN
-            if [ -z "$XHTTP_DOMAIN" ]; then
-                print_error "Domain name is required for XHTTP. Please enter a valid domain."
-                exit 1
-            fi
-            # Validate domain format (basic check)
-            if ! echo "$XHTTP_DOMAIN" | grep -qE '^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'; then
-                print_warning "Domain format may be invalid, but continuing..."
-            fi
-            print_success "Domain: ${CYAN}${XHTTP_DOMAIN}${NC}"
-            
-            # Update SERVER_B_IP to use domain instead of IP
-            SERVER_B_IP="$XHTTP_DOMAIN"
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        # For XHTTP (SplitHTTP), always ask for domain name for CDN support
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What domain name should be used for XHTTP tunnel?"
+        echo -e "${DIM}XHTTP requires a domain name (not IP) for CDN support and maximum speed.${NC}"
+        echo -e "${DIM}This domain should point to Server B's IP address.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter domain name (e.g., example.com): \c"
+        read XHTTP_DOMAIN
+        if [ -z "$XHTTP_DOMAIN" ]; then
+            print_error "Domain name is required for XHTTP. Please enter a valid domain."
+            exit 1
         fi
+        # Validate domain format (basic check)
+        if ! echo "$XHTTP_DOMAIN" | grep -qE '^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'; then
+            print_warning "Domain format may be invalid, but continuing..."
+        fi
+        print_success "Domain: ${CYAN}${XHTTP_DOMAIN}${NC}"
         
-        # Determine question number based on transport protocol
-        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-            QUESTION_NUM="6"
+        # Update SERVER_B_IP to use domain instead of IP
+        SERVER_B_IP="$XHTTP_DOMAIN"
+        
+        # If using Reality, ask for server name
+        if [ "$USE_REALITY" = true ]; then
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What server name should be used for Reality protocol (SNI)?"
+            echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
+            echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+            read SERVER_NAME
+            SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+            print_success "Reality Server Name: ${CYAN}${SERVER_NAME}${NC}"
         else
-            QUESTION_NUM="5"
+            SERVER_NAME=""
         fi
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What server name should be used for Reality protocol (SNI)?"
+        TRANSPORT_PATH="/assets"
+        WS_DOMAIN=""
+    elif [ "$USE_REALITY" = true ]; then
+        # For other protocols with Reality, ask for server name
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What server name should be used for Reality protocol (SNI)?"
         echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
         read SERVER_NAME
@@ -1467,6 +1479,7 @@ install_server_a() {
         print_success "Reality Server Name: ${CYAN}${SERVER_NAME}${NC}"
         TRANSPORT_PATH="/assets"
         WS_DOMAIN=""
+        XHTTP_DOMAIN=""
     else
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             # For WebSocket, ask for domain name (required for CDN support)
@@ -1511,12 +1524,14 @@ install_server_a() {
     fi
     
     # Generate keys only if using Reality
+    # Note: XHTTP without Reality doesn't need keys
     if [ "$USE_REALITY" = true ]; then
         generate_reality_keys
     else
         PUBLIC_KEY=""
         PRIVATE_KEY=""
         SHORT_IDS=""
+        SHORT_ID=""
     fi
     
     # Generate UUID
@@ -1703,9 +1718,10 @@ EOF
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        # Use the single short ID for Server A outbound (client side uses shortId, not shortIds)
-        FIRST_SHORT_ID="$SHORT_ID"
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        if [ "$USE_REALITY" = true ]; then
+            # XHTTP + Reality configuration for Server A (outbound)
+            FIRST_SHORT_ID="$SHORT_ID"
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "splithttp",
         "security": "reality",
         "realitySettings": {
@@ -1727,6 +1743,23 @@ EOF
           "mode": "packet-up"
         }
 EOF
+        else
+            # XHTTP without Reality configuration for Server A (outbound)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "splithttp",
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "packet-up"
+        }
+EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
         if [ "$USE_REALITY" = true ]; then
             # TCP + Reality configuration for Server A (outbound)
@@ -1935,12 +1968,13 @@ install_server_b() {
     echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- Without Reality (fast + CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-5, default: 1]${NC}: \c"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-6, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
@@ -1950,18 +1984,22 @@ install_server_b() {
             USE_REALITY=true
             ;;
         2)
-            TRANSPORT_PROTOCOL="tcp"
+            TRANSPORT_PROTOCOL="splithttp"
             USE_REALITY=false
             ;;
         3)
             TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=true
+            USE_REALITY=false
             ;;
         4)
+            TRANSPORT_PROTOCOL="tcp"
+            USE_REALITY=true
+            ;;
+        5)
             TRANSPORT_PROTOCOL="ws"
             USE_REALITY=false
             ;;
-        5)
+        6)
             TRANSPORT_PROTOCOL="grpc"
             USE_REALITY=false
             ;;
@@ -1987,8 +2025,8 @@ install_server_b() {
         print_success "Domain: ${CYAN}${XHTTP_DOMAIN}${NC}"
     fi
     
-    # Question 3/4: Private Key (only if using Reality)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
+    # Question 3/4: Private Key (only if using Reality with XHTTP or other protocols)
+    if [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
             QUESTION_NUM="4"
         else
@@ -2041,7 +2079,7 @@ install_server_b() {
     fi
     
     # Question 5/6/7: Short IDs (only if using Reality)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
+    if [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             QUESTION_NUM="6"
         elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2082,7 +2120,7 @@ install_server_b() {
     fi
     
     # Question 6/7/8: Server Name (only if using Reality)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
+    if [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             QUESTION_NUM="7"
         elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2101,12 +2139,14 @@ install_server_b() {
     fi
     
     # Tunnel Port from Server A (question number depends on transport protocol)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        if [ "$USE_REALITY" = true ]; then
             QUESTION_NUM="7"
         else
-            QUESTION_NUM="8"
+            QUESTION_NUM="4"
         fi
+    elif [ "$USE_REALITY" = true ]; then
+        QUESTION_NUM="8"
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         QUESTION_NUM="6"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
@@ -2130,7 +2170,11 @@ install_server_b() {
     
     # Ports to forward (question number depends on transport protocol)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        QUESTION_NUM="8"
+        if [ "$USE_REALITY" = true ]; then
+            QUESTION_NUM="8"
+        else
+            QUESTION_NUM="5"
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         QUESTION_NUM="7"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
@@ -2185,12 +2229,14 @@ install_server_b() {
         if [ -n "$XHTTP_DOMAIN" ]; then
             print_config_item "Domain" "$XHTTP_DOMAIN"
         fi
-        print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
-        print_config_item "Short ID" "$SERVER_B_SHORT_ID"
-        if [ -n "$SERVER_B_SEED" ]; then
-            print_config_item "Seed" "$SERVER_B_SEED"
+        if [ "$USE_REALITY" = true ]; then
+            print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
+            print_config_item "Short ID" "$SERVER_B_SHORT_ID"
+            if [ -n "$SERVER_B_SEED" ]; then
+                print_config_item "Seed" "$SERVER_B_SEED"
+            fi
+            print_config_item "Server Name" "$SERVER_NAME"
         fi
-        print_config_item "Server Name" "$SERVER_NAME"
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Ports to Forward" "$ASSIGNED_PORTS"
@@ -2326,9 +2372,10 @@ ENDEOF
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
-        # Format short ID properly (Server B uses shortIds array, but with single value)
-        FORMATTED_SHORT_ID=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        if [ "$USE_REALITY" = true ]; then
+            # XHTTP + Reality configuration for Server B (inbound)
+            FORMATTED_SHORT_ID=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "splithttp",
         "security": "reality",
         "realitySettings": {
@@ -2350,6 +2397,23 @@ ENDEOF
           "mode": "packet-up"
         }
 EOF
+        else
+            # XHTTP without Reality configuration for Server B (inbound)
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "splithttp",
+        "splithttpSettings": {
+          "path": "/assets",
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "packet-up"
+        }
+EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
         if [ "$USE_REALITY" = true ]; then
             # TCP + Reality configuration for Server B (inbound)
