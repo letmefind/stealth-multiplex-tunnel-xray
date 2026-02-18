@@ -1430,9 +1430,36 @@ install_server_a() {
     fi
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
     
-    # Question 5: Domain (for WebSocket) or Path (for GRPC) or Server Name (for Reality)
+    # Question 5: Domain (for WebSocket/XHTTP) or Path (for GRPC) or Server Name (for Reality)
     if [ "$USE_REALITY" = true ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What server name should be used for Reality protocol (SNI)?"
+        # For XHTTP (SplitHTTP) + Reality, ask for domain name for CDN support
+        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What domain name should be used for XHTTP tunnel?"
+            echo -e "${DIM}XHTTP requires a domain name (not IP) for CDN support and maximum speed.${NC}"
+            echo -e "${DIM}This domain should point to Server B's IP address.${NC}"
+            echo -e "${CYAN}${ARROW}${NC} Enter domain name (e.g., example.com): \c"
+            read XHTTP_DOMAIN
+            if [ -z "$XHTTP_DOMAIN" ]; then
+                print_error "Domain name is required for XHTTP. Please enter a valid domain."
+                exit 1
+            fi
+            # Validate domain format (basic check)
+            if ! echo "$XHTTP_DOMAIN" | grep -qE '^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'; then
+                print_warning "Domain format may be invalid, but continuing..."
+            fi
+            print_success "Domain: ${CYAN}${XHTTP_DOMAIN}${NC}"
+            
+            # Update SERVER_B_IP to use domain instead of IP
+            SERVER_B_IP="$XHTTP_DOMAIN"
+        fi
+        
+        # Determine question number based on transport protocol
+        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            QUESTION_NUM="6"
+        else
+            QUESTION_NUM="5"
+        fi
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What server name should be used for Reality protocol (SNI)?"
         echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Reality server name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
         read SERVER_NAME
@@ -1514,7 +1541,7 @@ install_server_a() {
     
     # Show configuration summary
     print_section "Configuration Summary"
-    if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         print_config_item "Server B Domain" "$SERVER_B_IP"
     else
         print_config_item "Server B IP" "$SERVER_B_IP"
@@ -1527,6 +1554,9 @@ install_server_a() {
     fi
     if [ -n "$WS_DOMAIN" ]; then
         print_config_item "WebSocket Domain" "$WS_DOMAIN"
+    fi
+    if [ -n "$XHTTP_DOMAIN" ]; then
+        print_config_item "XHTTP Domain" "$XHTTP_DOMAIN"
     fi
     if [ "$USE_REALITY" = true ]; then
         print_config_item "Server Name" "$SERVER_NAME"
@@ -1687,9 +1717,9 @@ EOF
         },
         "splithttpSettings": {
           "path": "/assets",
-          "scMaxEachPostBytes": 2097152,
-          "scMaxConcurrentPosts": 4,
-          "scMinPostsIntervalMs": 50,
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
           "noSSEHeader": false,
           "noGRPCHeader": true,
           "xPaddingBytes": 0,
@@ -1852,6 +1882,9 @@ EOF
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${WS_DOMAIN}${NC}"
     fi
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] && [ -n "$XHTTP_DOMAIN" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${XHTTP_DOMAIN}${NC}"
+    fi
     if [ -n "$TRANSPORT_PATH" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Path:${NC} ${CYAN}${TRANSPORT_PATH}${NC}"
     fi
@@ -1940,8 +1973,28 @@ install_server_b() {
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     
-    # Question 3: Private Key (only if using Reality)
+    # Question 3: Domain (for XHTTP) or Private Key (for other Reality protocols)
+    XHTTP_DOMAIN=""
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What domain name was used on Server A?"
+        echo -e "${DIM}This is the domain name used for XHTTP tunnel on Server A.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter domain name: \c"
+        read XHTTP_DOMAIN
+        if [ -z "$XHTTP_DOMAIN" ]; then
+            print_error "Domain name is required for XHTTP. Please enter the domain from Server A."
+            exit 1
+        fi
+        print_success "Domain: ${CYAN}${XHTTP_DOMAIN}${NC}"
+    fi
+    
+    # Question 3/4: Private Key (only if using Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
+        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            QUESTION_NUM="4"
+        else
+            QUESTION_NUM="3"
+        fi
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Private Key from Server A installation?"
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Private Key from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
@@ -1987,10 +2040,12 @@ install_server_b() {
         TRANSPORT_PATH=""
     fi
     
-    # Question 5/6: Short IDs (only if using Reality)
+    # Question 5/6/7: Short IDs (only if using Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             QUESTION_NUM="6"
+        elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            QUESTION_NUM="5"
         else
             QUESTION_NUM="5"
         fi
@@ -2026,9 +2081,16 @@ install_server_b() {
         print_success "Seed: ${CYAN}${SERVER_B_SEED}${NC}"
     fi
     
-    # Question 7: Server Name (only if using Reality)
+    # Question 6/7/8: Server Name (only if using Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What is the Server Name from Server A installation?"
+        if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+            QUESTION_NUM="7"
+        elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            QUESTION_NUM="6"
+        else
+            QUESTION_NUM="7"
+        fi
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Server Name from Server A installation?"
         echo -e "${DIM}This is the Reality server name (SNI) you used on Server A.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
         read SERVER_NAME
@@ -2040,7 +2102,11 @@ install_server_b() {
     
     # Tunnel Port from Server A (question number depends on transport protocol)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        QUESTION_NUM="8"
+        if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+            QUESTION_NUM="7"
+        else
+            QUESTION_NUM="8"
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         QUESTION_NUM="6"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
@@ -2116,6 +2182,9 @@ install_server_b() {
         print_config_item "Transport Path" "$TRANSPORT_PATH"
     fi
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        if [ -n "$XHTTP_DOMAIN" ]; then
+            print_config_item "Domain" "$XHTTP_DOMAIN"
+        fi
         print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
         print_config_item "Short ID" "$SERVER_B_SHORT_ID"
         if [ -n "$SERVER_B_SEED" ]; then
@@ -2271,9 +2340,9 @@ ENDEOF
         },
         "splithttpSettings": {
           "path": "/assets",
-          "scMaxEachPostBytes": 2097152,
-          "scMaxConcurrentPosts": 4,
-          "scMinPostsIntervalMs": 50,
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
           "noSSEHeader": false,
           "noGRPCHeader": true,
           "xPaddingBytes": 0,
