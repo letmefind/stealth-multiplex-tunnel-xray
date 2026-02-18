@@ -2033,7 +2033,6 @@ install_server_b() {
             QUESTION_NUM="3"
         fi
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Private Key from Server A installation?"
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What is the Private Key from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Private Key: \c"
         read SERVER_B_PRIVATE_KEY
