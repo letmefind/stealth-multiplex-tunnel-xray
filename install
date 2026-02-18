@@ -290,6 +290,110 @@ check_xray_version() {
     export XRAY_LATEST_VERSION
 }
 
+# Check specific Xray version
+check_specific_xray_version() {
+    local TARGET_VERSION="$1"
+    
+    if [ -z "$TARGET_VERSION" ]; then
+        print_error "Version not specified"
+        return 1
+    fi
+    
+    # Normalize version format (add 'v' prefix if missing)
+    if ! echo "$TARGET_VERSION" | grep -qE '^v[0-9]'; then
+        TARGET_VERSION="v${TARGET_VERSION}"
+    fi
+    
+    print_section "Checking Xray Version"
+    
+    # Check if Xray is installed
+    if ! command -v xray >/dev/null 2>&1; then
+        print_error "Xray is not installed"
+        print_info "Target version: ${CYAN}${TARGET_VERSION}${NC}"
+        print_section_end
+        return 1
+    fi
+    
+    CURRENT_VERSION=$(xray version | head -1)
+    print_info "Current Xray version: ${CYAN}${CURRENT_VERSION}${NC}"
+    print_info "Checking version: ${CYAN}${TARGET_VERSION}${NC}"
+    
+    # Check if target version exists on GitHub
+    print_info "Checking if version ${CYAN}${TARGET_VERSION}${NC} exists..."
+    if curl -s --connect-timeout 5 "https://api.github.com/repos/XTLS/Xray-core/releases/tags/${TARGET_VERSION}" >/dev/null 2>&1; then
+        print_success "Version ${CYAN}${TARGET_VERSION}${NC} exists on GitHub"
+        
+        # Extract version numbers for comparison
+        CURRENT_VERSION_NUM=$(echo "$CURRENT_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        TARGET_VERSION_NUM=$(echo "$TARGET_VERSION" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+        
+        if [ -n "$CURRENT_VERSION_NUM" ] && [ -n "$TARGET_VERSION_NUM" ]; then
+            # Compare versions
+            if [ "$CURRENT_VERSION_NUM" = "$TARGET_VERSION_NUM" ]; then
+                print_success "✅ You already have version ${CYAN}${TARGET_VERSION}${NC}"
+            else
+                # Simple version comparison (major.minor.patch)
+                CURRENT_MAJOR=$(echo "$CURRENT_VERSION_NUM" | cut -d. -f1)
+                CURRENT_MINOR=$(echo "$CURRENT_VERSION_NUM" | cut -d. -f2)
+                CURRENT_PATCH=$(echo "$CURRENT_VERSION_NUM" | cut -d. -f3)
+                
+                TARGET_MAJOR=$(echo "$TARGET_VERSION_NUM" | cut -d. -f1)
+                TARGET_MINOR=$(echo "$TARGET_VERSION_NUM" | cut -d. -f2)
+                TARGET_PATCH=$(echo "$TARGET_VERSION_NUM" | cut -d. -f3)
+                
+                IS_NEWER=false
+                if [ "$TARGET_MAJOR" -gt "$CURRENT_MAJOR" ]; then
+                    IS_NEWER=true
+                elif [ "$TARGET_MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$TARGET_MINOR" -gt "$CURRENT_MINOR" ]; then
+                    IS_NEWER=true
+                elif [ "$TARGET_MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$TARGET_MINOR" -eq "$CURRENT_MINOR" ] && [ "$TARGET_PATCH" -gt "$CURRENT_PATCH" ]; then
+                    IS_NEWER=true
+                fi
+                
+                if [ "$IS_NEWER" = true ]; then
+                    print_warning "⚠️  Version ${CYAN}${TARGET_VERSION}${NC} is NEWER than your current version"
+                    echo
+                    if confirm "Do you want to update to ${TARGET_VERSION}?"; then
+                        if update_xray "$TARGET_VERSION"; then
+                            print_success "Xray updated successfully to ${CYAN}${TARGET_VERSION}${NC}"
+                        else
+                            print_error "Failed to update Xray"
+                        fi
+                    fi
+                else
+                    print_warning "⚠️  Version ${CYAN}${TARGET_VERSION}${NC} is OLDER than your current version"
+                    echo
+                    if confirm "Do you still want to downgrade to ${TARGET_VERSION}?"; then
+                        if update_xray "$TARGET_VERSION"; then
+                            print_success "Xray downgraded successfully to ${CYAN}${TARGET_VERSION}${NC}"
+                        else
+                            print_error "Failed to downgrade Xray"
+                        fi
+                    fi
+                fi
+            fi
+        else
+            print_warning "Could not compare versions, but ${CYAN}${TARGET_VERSION}${NC} exists"
+            echo
+            if confirm "Do you want to update to ${TARGET_VERSION}?"; then
+                if update_xray "$TARGET_VERSION"; then
+                    print_success "Xray updated successfully to ${CYAN}${TARGET_VERSION}${NC}"
+                else
+                    print_error "Failed to update Xray"
+                fi
+            fi
+        fi
+    else
+        print_error "Version ${CYAN}${TARGET_VERSION}${NC} not found on GitHub"
+        print_info "Please check the version tag format (e.g., v1.8.4 or 1.8.4)"
+        print_section_end
+        return 1
+    fi
+    
+    print_section_end
+    return 0
+}
+
 # Update Xray to latest version
 update_xray() {
     local TARGET_VERSION="$1"
