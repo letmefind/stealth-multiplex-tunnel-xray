@@ -1321,9 +1321,12 @@ install_server_a() {
         exit 1
     fi
     
-    # Question 1: Server B IP
+    # Question 1: Server B IP or Domain (Domain for WebSocket, IP for others)
+    # Note: We'll ask for transport protocol first, then ask appropriate question
+    # For now, we'll ask for IP, but if WebSocket is selected, we'll update it to domain
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the IP address of Server B (destination server)?"
     echo -e "${DIM}This is the server where your tunneled traffic will be sent.${NC}"
+    echo -e "${DIM}Note: For WebSocket, you'll be asked for domain name later.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address: \c"
     read SERVER_B_IP
     
@@ -1427,7 +1430,7 @@ install_server_a() {
     fi
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
     
-    # Question 5: Path (for WebSocket/GRPC) or Server Name (for Reality)
+    # Question 5: Domain (for WebSocket) or Path (for GRPC) or Server Name (for Reality)
     if [ "$USE_REALITY" = true ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What server name should be used for Reality protocol (SNI)?"
         echo -e "${DIM}This is used to disguise the connection as legitimate traffic.${NC}"
@@ -1436,24 +1439,46 @@ install_server_a() {
         SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
         print_success "Reality Server Name: ${CYAN}${SERVER_NAME}${NC}"
         TRANSPORT_PATH="/assets"
+        WS_DOMAIN=""
     else
-        if [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
-            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What path should be used for ${TRANSPORT_PROTOCOL}?"
-            echo -e "${DIM}This is the HTTP path for WebSocket/GRPC connections.${NC}"
-            if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-                echo -e "${CYAN}${ARROW}${NC} Enter WebSocket path ${DIM}[/assets]${NC}: \c"
-            else
-                echo -e "${CYAN}${ARROW}${NC} Enter GRPC service name ${DIM}[/xray.XrayService]${NC}: \c"
+        if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+            # For WebSocket, ask for domain name (required for CDN support)
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What domain name should be used for WebSocket?"
+            echo -e "${DIM}WebSocket requires a domain name (not IP) for CDN support.${NC}"
+            echo -e "${DIM}This domain should point to Server B's IP address.${NC}"
+            echo -e "${CYAN}${ARROW}${NC} Enter domain name (e.g., example.com): \c"
+            read WS_DOMAIN
+            if [ -z "$WS_DOMAIN" ]; then
+                print_error "Domain name is required for WebSocket. Please enter a valid domain."
+                exit 1
             fi
+            # Validate domain format (basic check)
+            if ! echo "$WS_DOMAIN" | grep -qE '^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$'; then
+                print_warning "Domain format may be invalid, but continuing..."
+            fi
+            print_success "Domain: ${CYAN}${WS_DOMAIN}${NC}"
+            
+            # Update SERVER_B_IP to use domain instead of IP
+            SERVER_B_IP="$WS_DOMAIN"
+            
+            # Ask for WebSocket path
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What path should be used for WebSocket?"
+            echo -e "${DIM}This is the HTTP path for WebSocket connections.${NC}"
+            echo -e "${CYAN}${ARROW}${NC} Enter WebSocket path ${DIM}[/assets]${NC}: \c"
             read TRANSPORT_PATH
-            if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-                TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
-            else
-                TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
-            fi
+            TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
             print_success "Path: ${CYAN}${TRANSPORT_PATH}${NC}"
+        elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What service name should be used for GRPC?"
+            echo -e "${DIM}This is the GRPC service name.${NC}"
+            echo -e "${CYAN}${ARROW}${NC} Enter GRPC service name ${DIM}[/xray.XrayService]${NC}: \c"
+            read TRANSPORT_PATH
+            TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
+            print_success "Service Name: ${CYAN}${TRANSPORT_PATH}${NC}"
+            WS_DOMAIN=""
         else
             TRANSPORT_PATH=""
+            WS_DOMAIN=""
         fi
         SERVER_NAME=""
     fi
@@ -1489,12 +1514,19 @@ install_server_a() {
     
     # Show configuration summary
     print_section "Configuration Summary"
-    print_config_item "Server B IP" "$SERVER_B_IP"
+    if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        print_config_item "Server B Domain" "$SERVER_B_IP"
+    else
+        print_config_item "Server B IP" "$SERVER_B_IP"
+    fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Client Ports" "$CLIENT_PORTS"
     print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
+    fi
+    if [ -n "$WS_DOMAIN" ]; then
+        print_config_item "WebSocket Domain" "$WS_DOMAIN"
     fi
     if [ "$USE_REALITY" = true ]; then
         print_config_item "Server Name" "$SERVER_NAME"
@@ -1694,12 +1726,23 @@ EOF
 EOF
         fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        # WebSocket requires domain name in host field (for Server A outbound)
+        if [ -n "$WS_DOMAIN" ]; then
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "ws",
+        "wsSettings": {
+          "path": "$TRANSPORT_PATH",
+          "host": "$WS_DOMAIN"
+        }
+EOF
+        else
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
         "wsSettings": {
           "path": "$TRANSPORT_PATH"
         }
 EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         # Server A (outbound) - optimized with performance settings
         cat > "$STREAM_SETTINGS_TEMP" << EOF
@@ -1798,6 +1841,9 @@ EOF
     print_warning "IMPORTANT: Save these details for Server B installation:"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${WS_DOMAIN}${NC}"
+    fi
     if [ -n "$TRANSPORT_PATH" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Path:${NC} ${CYAN}${TRANSPORT_PATH}${NC}"
     fi
@@ -1901,30 +1947,46 @@ install_server_b() {
         SERVER_B_PRIVATE_KEY=""
     fi
     
-    # Question 4: Path (if WebSocket or GRPC)
-    if [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What path/service name was used on Server A?"
-        if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-            echo -e "${DIM}This is the WebSocket path used on Server A.${NC}"
-            echo -e "${CYAN}${ARROW}${NC} Enter WebSocket path ${DIM}[/assets]${NC}: \c"
-        else
-            echo -e "${DIM}This is the GRPC service name used on Server A.${NC}"
-            echo -e "${CYAN}${ARROW}${NC} Enter GRPC service name ${DIM}[/xray.XrayService]${NC}: \c"
+    # Question 4: Domain and Path (if WebSocket) or Service Name (if GRPC)
+    WS_DOMAIN=""
+    if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        # For WebSocket, ask for domain name first
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What domain name was used on Server A?"
+        echo -e "${DIM}This is the domain name used for WebSocket on Server A.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter domain name: \c"
+        read WS_DOMAIN
+        if [ -z "$WS_DOMAIN" ]; then
+            print_error "Domain name is required for WebSocket. Please enter the domain from Server A."
+            exit 1
         fi
+        print_success "Domain: ${CYAN}${WS_DOMAIN}${NC}"
+        
+        # Then ask for WebSocket path
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What path was used on Server A?"
+        echo -e "${DIM}This is the WebSocket path used on Server A.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter WebSocket path ${DIM}[/assets]${NC}: \c"
         read TRANSPORT_PATH
-        if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-            TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
-        else
-            TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
-        fi
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
         print_success "Path: ${CYAN}${TRANSPORT_PATH}${NC}"
+    elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What service name was used on Server A?"
+        echo -e "${DIM}This is the GRPC service name used on Server A.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter GRPC service name ${DIM}[/xray.XrayService]${NC}: \c"
+        read TRANSPORT_PATH
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
+        print_success "Service Name: ${CYAN}${TRANSPORT_PATH}${NC}"
     else
         TRANSPORT_PATH=""
     fi
     
-    # Question 5: Short IDs (only if using Reality)
+    # Question 5/6: Short IDs (only if using Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} What is the Short ID from Server A installation?"
+        if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+            QUESTION_NUM="6"
+        else
+            QUESTION_NUM="5"
+        fi
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Short ID from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Short ID: \c"
         read SERVER_B_SHORT_ID
@@ -1971,7 +2033,9 @@ install_server_b() {
     # Tunnel Port from Server A (question number depends on transport protocol)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
         QUESTION_NUM="8"
-    elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+    elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        QUESTION_NUM="6"
+    elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="5"
     else
         QUESTION_NUM="3"
@@ -1993,7 +2057,9 @@ install_server_b() {
     # Ports to forward (question number depends on transport protocol)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         QUESTION_NUM="8"
-    elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+    elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        QUESTION_NUM="7"
+    elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="6"
     else
         QUESTION_NUM="4"
@@ -2236,12 +2302,23 @@ EOF
 EOF
         fi
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
-        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        # WebSocket requires domain name in host field (for Server B inbound)
+        if [ -n "$WS_DOMAIN" ]; then
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "ws",
+        "wsSettings": {
+          "path": "$TRANSPORT_PATH",
+          "host": "$WS_DOMAIN"
+        }
+EOF
+        else
+            cat > "$STREAM_SETTINGS_TEMP" << EOF
         "network": "ws",
         "wsSettings": {
           "path": "$TRANSPORT_PATH"
         }
 EOF
+        fi
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         # Server B (inbound) - simpler config, no client-side optimizations
         cat > "$STREAM_SETTINGS_TEMP" << EOF
