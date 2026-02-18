@@ -624,6 +624,11 @@ generate_reality_keys() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key:${NC} ${CYAN}${PRIVATE_KEY}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
     
+    # Generate seed for post-quantum cryptography (only for TCP + Reality)
+    # Seed will be generated later when transport protocol is known
+    SEED=""
+    export SEED
+    
     # Export the variables so they're available globally
     export PUBLIC_KEY
     export PRIVATE_KEY
@@ -1466,6 +1471,20 @@ install_server_a() {
     UUID=$(generate_uuid)
     print_success "Generated UUID: ${CYAN}${UUID}${NC}"
     
+    # Generate seed for post-quantum cryptography (only for TCP + Reality)
+    SEED=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
+        SEED_OUTPUT=$(xray mlkem768 2>&1)
+        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+        if [ -z "$SEED" ]; then
+            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
+        fi
+        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
+            export SEED
+            print_success "Generated seed for post-quantum cryptography: ${CYAN}${SEED}${NC}"
+        fi
+    fi
+    
     print_section_end
     
     # Show configuration summary
@@ -1482,6 +1501,9 @@ install_server_a() {
         print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
         print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
         print_config_item "Short ID" "$SHORT_ID"
+        if [ -n "$SEED" ]; then
+            print_config_item "Seed (for Server B)" "$SEED"
+        fi
     fi
     print_config_item "UUID" "$UUID"
     print_section_end
@@ -1566,19 +1588,10 @@ install_server_a() {
         FLOW_CONFIG=""
     fi
     
-    # Generate seed for post-quantum cryptography (optional but recommended)
-    # Seed is only needed for TCP + Reality (when flow is used)
+    # Use seed for post-quantum cryptography (already generated above)
     SEED_CONFIG=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
-        SEED_OUTPUT=$(xray mlkem768 2>&1)
-        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
-        if [ -z "$SEED" ]; then
-            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
-        fi
-        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
-            SEED_CONFIG=", \"seed\": \"$SEED\""
-            print_info "Generated seed for post-quantum cryptography"
-        fi
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && [ -n "$SEED" ]; then
+        SEED_CONFIG=", \"seed\": \"$SEED\""
     fi
     
     # Build complete config file directly
@@ -1791,12 +1804,15 @@ EOF
     if [ "$USE_REALITY" = true ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server B):${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+        if [ -n "$SEED" ]; then
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Seed (for Server B):${NC} ${CYAN}${SEED}${NC}"
+        fi
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
     fi
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
     echo
     if [ "$USE_REALITY" = true ]; then
-        print_info "Note: Public Key is already configured in Server A, Private Key goes to Server B"
+        print_info "Note: Public Key is already configured in Server A, Private Key and Seed go to Server B"
     fi
     print_section_end
 }
@@ -1924,9 +1940,25 @@ install_server_b() {
         SERVER_B_SHORT_IDS=""
     fi
     
-    # Question 5/6: Server Name (only if using Reality)
+    # Question 6: Seed (only for TCP + Reality)
+    SERVER_B_SEED=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What is the Seed from Server A installation?"
+        echo -e "${DIM}This was generated and shown to you during Server A setup (for TCP + Reality).${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter Seed: \c"
+        read SERVER_B_SEED
+        if [ -z "$SERVER_B_SEED" ]; then
+            print_error "Seed is required for TCP + Reality. Please enter the Seed from Server A."
+            exit 1
+        fi
+        # Remove quotes if user entered them
+        SERVER_B_SEED=$(echo "$SERVER_B_SEED" | sed 's/"//g' | xargs)
+        print_success "Seed: ${CYAN}${SERVER_B_SEED}${NC}"
+    fi
+    
+    # Question 7: Server Name (only if using Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What is the Server Name from Server A installation?"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 7:${NC} What is the Server Name from Server A installation?"
         echo -e "${DIM}This is the Reality server name (SNI) you used on Server A.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
         read SERVER_NAME
@@ -1938,7 +1970,7 @@ install_server_b() {
     
     # Tunnel Port from Server A (question number depends on transport protocol)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$USE_REALITY" = true ]; then
-        QUESTION_NUM="7"
+        QUESTION_NUM="8"
     elif [ "$TRANSPORT_PROTOCOL" = "ws" ] || [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="5"
     else
@@ -2012,6 +2044,9 @@ install_server_b() {
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         print_config_item "Private Key" "$SERVER_B_PRIVATE_KEY"
         print_config_item "Short ID" "$SERVER_B_SHORT_ID"
+        if [ -n "$SERVER_B_SEED" ]; then
+            print_config_item "Seed" "$SERVER_B_SEED"
+        fi
         print_config_item "Server Name" "$SERVER_NAME"
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
@@ -2053,11 +2088,25 @@ install_server_b() {
     print_section "Creating Configuration"
     mkdir -p /etc/xray /var/log/xray
     
+    # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
+    # Flow must be set BEFORE building the config file
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
+        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
+    else
+        FLOW_CONFIG=""
+    fi
+    
+    # Use seed from Server A (already provided by user)
+    SEED_CONFIG=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && [ -n "$SERVER_B_SEED" ]; then
+        SEED_CONFIG=", \"seed\": \"$SERVER_B_SEED\""
+    fi
+    
     # Generate Server B configuration with port-preserving routing
     TEMP_CONFIG=$(mktemp)
     
     # Start with base config
-    cat > "$TEMP_CONFIG" << 'BASEEOF'
+    cat > "$TEMP_CONFIG" << BASEEOF
 {
   "log": {
     "access": "/var/log/xray/access.log",
@@ -2203,29 +2252,6 @@ EOF
 EOF
     fi
     
-    # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
-    # Flow must be set BEFORE building the config file
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
-        FLOW_CONFIG=', "flow": "xtls-rprx-vision"'
-    else
-        FLOW_CONFIG=""
-    fi
-    
-    # Generate seed for post-quantum cryptography (optional but recommended)
-    # Seed is only needed for TCP + Reality (when flow is used)
-    SEED_CONFIG=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
-        SEED_OUTPUT=$(xray mlkem768 2>&1)
-        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
-        if [ -z "$SEED" ]; then
-            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
-        fi
-        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
-            SEED_CONFIG=", \"seed\": \"$SEED\""
-            print_info "Generated seed for post-quantum cryptography"
-        fi
-    fi
-    
     # Replace streamSettings placeholder
     sed -i "/STREAM_SETTINGS_PLACEHOLDER/r $STREAM_SETTINGS_TEMP" "$TEMP_CONFIG"
     sed -i "/STREAM_SETTINGS_PLACEHOLDER/d" "$TEMP_CONFIG"
@@ -2233,8 +2259,6 @@ EOF
     # Replace other placeholders
     sed -i "s/TUNNEL_PORT_PLACEHOLDER/$TUNNEL_PORT/g" "$TEMP_CONFIG"
     sed -i "s/UUID_PLACEHOLDER/$UUID/g" "$TEMP_CONFIG"
-    sed -i "s/\$FLOW_CONFIG/$FLOW_CONFIG/g" "$TEMP_CONFIG"
-    sed -i "s/\$SEED_CONFIG/$SEED_CONFIG/g" "$TEMP_CONFIG"
     
     # Cleanup
     rm -f "$STREAM_SETTINGS_TEMP"
