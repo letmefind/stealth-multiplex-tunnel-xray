@@ -1485,7 +1485,8 @@ install_server_a() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption (stealth + fast)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-6, default: 1]${NC}: \c"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP-based transport (low latency)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
@@ -1512,6 +1513,10 @@ install_server_a() {
             ;;
         6)
             TRANSPORT_PROTOCOL="grpc"
+            USE_REALITY=false
+            ;;
+        7)
+            TRANSPORT_PROTOCOL="kcp"
             USE_REALITY=false
             ;;
         *)
@@ -1648,6 +1653,83 @@ install_server_a() {
             TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
             print_success "Service Name: ${CYAN}${TRANSPORT_PATH}${NC}"
             WS_DOMAIN=""
+        elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            # KCP parameters according to latest Xray-core documentation
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} Configure KCP (mKCP) parameters"
+            echo -e "${DIM}KCP uses UDP to simulate TCP connections with low latency.${NC}"
+            
+            # MTU (576-1460, default: 1350)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter MTU (Maximum Transmission Unit) ${DIM}[576-1460, default: 1350]${NC}: \c"
+            read KCP_MTU
+            KCP_MTU="${KCP_MTU:-1350}"
+            if ! [[ "$KCP_MTU" =~ ^[0-9]+$ ]] || [ "$KCP_MTU" -lt 576 ] || [ "$KCP_MTU" -gt 1460 ]; then
+                print_warning "Invalid MTU, using default: 1350"
+                KCP_MTU="1350"
+            fi
+            print_success "MTU: ${CYAN}${KCP_MTU}${NC}"
+            
+            # TTI (10-100ms, default: 50)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 50]${NC}: \c"
+            read KCP_TTI
+            KCP_TTI="${KCP_TTI:-50}"
+            if ! [[ "$KCP_TTI" =~ ^[0-9]+$ ]] || [ "$KCP_TTI" -lt 10 ] || [ "$KCP_TTI" -gt 100 ]; then
+                print_warning "Invalid TTI, using default: 50"
+                KCP_TTI="50"
+            fi
+            print_success "TTI: ${CYAN}${KCP_TTI}${NC}"
+            
+            # Uplink Capacity (default: 5 MB/s)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 5]${NC}: \c"
+            read KCP_UPLINK
+            KCP_UPLINK="${KCP_UPLINK:-5}"
+            if ! [[ "$KCP_UPLINK" =~ ^[0-9]+$ ]]; then
+                print_warning "Invalid uplink capacity, using default: 5"
+                KCP_UPLINK="5"
+            fi
+            print_success "Uplink Capacity: ${CYAN}${KCP_UPLINK} MB/s${NC}"
+            
+            # Downlink Capacity (default: 20 MB/s)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 20]${NC}: \c"
+            read KCP_DOWNLINK
+            KCP_DOWNLINK="${KCP_DOWNLINK:-20}"
+            if ! [[ "$KCP_DOWNLINK" =~ ^[0-9]+$ ]]; then
+                print_warning "Invalid downlink capacity, using default: 20"
+                KCP_DOWNLINK="20"
+            fi
+            print_success "Downlink Capacity: ${CYAN}${KCP_DOWNLINK} MB/s${NC}"
+            
+            # Congestion control (default: false)
+            echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[y/N]${NC}: \c"
+            read KCP_CONGESTION_INPUT
+            if [[ "$KCP_CONGESTION_INPUT" =~ ^[Yy]$ ]]; then
+                KCP_CONGESTION="true"
+            else
+                KCP_CONGESTION="false"
+            fi
+            print_success "Congestion Control: ${CYAN}${KCP_CONGESTION}${NC}"
+            
+            # Read buffer size (default: 2 MB)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+            read KCP_READ_BUFFER
+            KCP_READ_BUFFER="${KCP_READ_BUFFER:-2}"
+            if ! [[ "$KCP_READ_BUFFER" =~ ^[0-9]+$ ]]; then
+                print_warning "Invalid read buffer size, using default: 2"
+                KCP_READ_BUFFER="2"
+            fi
+            print_success "Read Buffer Size: ${CYAN}${KCP_READ_BUFFER} MB${NC}"
+            
+            # Write buffer size (default: 2 MB)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+            read KCP_WRITE_BUFFER
+            KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-2}"
+            if ! [[ "$KCP_WRITE_BUFFER" =~ ^[0-9]+$ ]]; then
+                print_warning "Invalid write buffer size, using default: 2"
+                KCP_WRITE_BUFFER="2"
+            fi
+            print_success "Write Buffer Size: ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
+            
+            WS_DOMAIN=""
+            TRANSPORT_PATH=""
         else
             TRANSPORT_PATH=""
             WS_DOMAIN=""
@@ -1704,6 +1786,15 @@ install_server_a() {
     fi
     if [ -n "$XHTTP_DOMAIN" ]; then
         print_config_item "XHTTP Domain" "$XHTTP_DOMAIN"
+    fi
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        print_config_item "KCP MTU" "$KCP_MTU"
+        print_config_item "KCP TTI" "${KCP_TTI}ms"
+        print_config_item "KCP Uplink" "${KCP_UPLINK} MB/s"
+        print_config_item "KCP Downlink" "${KCP_DOWNLINK} MB/s"
+        print_config_item "KCP Congestion" "$KCP_CONGESTION"
+        print_config_item "KCP Read Buffer" "${KCP_READ_BUFFER} MB"
+        print_config_item "KCP Write Buffer" "${KCP_WRITE_BUFFER} MB"
     fi
     if [ "$USE_REALITY" = true ]; then
         print_config_item "Server Name" "$SERVER_NAME"
@@ -1944,6 +2035,20 @@ EOF
           "initial_windows_size": 65535
         }
 EOF
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        # Server A (outbound) - KCP configuration according to latest Xray-core documentation
+        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "kcp",
+        "kcpSettings": {
+          "mtu": $KCP_MTU,
+          "tti": $KCP_TTI,
+          "uplinkCapacity": $KCP_UPLINK,
+          "downlinkCapacity": $KCP_DOWNLINK,
+          "congestion": $KCP_CONGESTION,
+          "readBufferSize": $KCP_READ_BUFFER,
+          "writeBufferSize": $KCP_WRITE_BUFFER
+        }
+EOF
     fi
     
     # Replace placeholders (FLOW_CONFIG and SEED_CONFIG already set above)
@@ -2003,9 +2108,17 @@ EOF
             port=$(echo "$port" | xargs) # trim whitespace
             ufw allow "$port/tcp"
         done
+        # KCP uses UDP, so allow UDP on tunnel port
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            ufw allow "$TUNNEL_PORT/udp"
+            print_info "KCP detected: UDP allowed on tunnel port $TUNNEL_PORT"
+        fi
         print_success "Firewall configured for client ports: $CLIENT_PORTS"
     else
         print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS"
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            print_warning "KCP uses UDP: Please allow UDP on port $TUNNEL_PORT"
+        fi
     fi
     print_section_end
     
@@ -2040,6 +2153,15 @@ EOF
     fi
     if [ -n "$TRANSPORT_PATH" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Path:${NC} ${CYAN}${TRANSPORT_PATH}${NC}"
+    fi
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP MTU (for Server B):${NC} ${CYAN}${KCP_MTU}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP TTI (for Server B):${NC} ${CYAN}${KCP_TTI}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Uplink (for Server B):${NC} ${CYAN}${KCP_UPLINK} MB/s${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Downlink (for Server B):${NC} ${CYAN}${KCP_DOWNLINK} MB/s${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Congestion (for Server B):${NC} ${CYAN}${KCP_CONGESTION}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Read Buffer (for Server B):${NC} ${CYAN}${KCP_READ_BUFFER} MB${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Write Buffer (for Server B):${NC} ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
     fi
     if [ "$USE_REALITY" = true ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server B):${NC} ${CYAN}${PRIVATE_KEY}${NC}"
@@ -2093,8 +2215,9 @@ install_server_b() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP-based transport (low latency)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-6, default: 1]${NC}: \c"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     
@@ -2121,6 +2244,10 @@ install_server_b() {
             ;;
         6)
             TRANSPORT_PROTOCOL="grpc"
+            USE_REALITY=false
+            ;;
+        7)
+            TRANSPORT_PROTOCOL="kcp"
             USE_REALITY=false
             ;;
         *)
@@ -2193,6 +2320,82 @@ install_server_b() {
         read TRANSPORT_PATH
         TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
         print_success "Service Name: ${CYAN}${TRANSPORT_PATH}${NC}"
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        # KCP parameters must match Server A configuration
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} Configure KCP (mKCP) parameters (must match Server A)"
+        echo -e "${DIM}These parameters must match the configuration used on Server A.${NC}"
+        
+        # MTU
+        echo -e "\n${CYAN}${ARROW}${NC} Enter MTU (Maximum Transmission Unit) ${DIM}[576-1460, default: 1350]${NC}: \c"
+        read KCP_MTU
+        KCP_MTU="${KCP_MTU:-1350}"
+        if ! [[ "$KCP_MTU" =~ ^[0-9]+$ ]] || [ "$KCP_MTU" -lt 576 ] || [ "$KCP_MTU" -gt 1460 ]; then
+            print_warning "Invalid MTU, using default: 1350"
+            KCP_MTU="1350"
+        fi
+        print_success "MTU: ${CYAN}${KCP_MTU}${NC}"
+        
+        # TTI
+        echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 50]${NC}: \c"
+        read KCP_TTI
+        KCP_TTI="${KCP_TTI:-50}"
+        if ! [[ "$KCP_TTI" =~ ^[0-9]+$ ]] || [ "$KCP_TTI" -lt 10 ] || [ "$KCP_TTI" -gt 100 ]; then
+            print_warning "Invalid TTI, using default: 50"
+            KCP_TTI="50"
+        fi
+        print_success "TTI: ${CYAN}${KCP_TTI}${NC}"
+        
+        # Uplink Capacity
+        echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 5]${NC}: \c"
+        read KCP_UPLINK
+        KCP_UPLINK="${KCP_UPLINK:-5}"
+        if ! [[ "$KCP_UPLINK" =~ ^[0-9]+$ ]]; then
+            print_warning "Invalid uplink capacity, using default: 5"
+            KCP_UPLINK="5"
+        fi
+        print_success "Uplink Capacity: ${CYAN}${KCP_UPLINK} MB/s${NC}"
+        
+        # Downlink Capacity
+        echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 20]${NC}: \c"
+        read KCP_DOWNLINK
+        KCP_DOWNLINK="${KCP_DOWNLINK:-20}"
+        if ! [[ "$KCP_DOWNLINK" =~ ^[0-9]+$ ]]; then
+            print_warning "Invalid downlink capacity, using default: 20"
+            KCP_DOWNLINK="20"
+        fi
+        print_success "Downlink Capacity: ${CYAN}${KCP_DOWNLINK} MB/s${NC}"
+        
+        # Congestion control
+        echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[y/N]${NC}: \c"
+        read KCP_CONGESTION_INPUT
+        if [[ "$KCP_CONGESTION_INPUT" =~ ^[Yy]$ ]]; then
+            KCP_CONGESTION="true"
+        else
+            KCP_CONGESTION="false"
+        fi
+        print_success "Congestion Control: ${CYAN}${KCP_CONGESTION}${NC}"
+        
+        # Read buffer size
+        echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+        read KCP_READ_BUFFER
+        KCP_READ_BUFFER="${KCP_READ_BUFFER:-2}"
+        if ! [[ "$KCP_READ_BUFFER" =~ ^[0-9]+$ ]]; then
+            print_warning "Invalid read buffer size, using default: 2"
+            KCP_READ_BUFFER="2"
+        fi
+        print_success "Read Buffer Size: ${CYAN}${KCP_READ_BUFFER} MB${NC}"
+        
+        # Write buffer size
+        echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+        read KCP_WRITE_BUFFER
+        KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-2}"
+        if ! [[ "$KCP_WRITE_BUFFER" =~ ^[0-9]+$ ]]; then
+            print_warning "Invalid write buffer size, using default: 2"
+            KCP_WRITE_BUFFER="2"
+        fi
+        print_success "Write Buffer Size: ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
+        
+        TRANSPORT_PATH=""
     else
         TRANSPORT_PATH=""
     fi
@@ -2270,6 +2473,8 @@ install_server_b() {
         QUESTION_NUM="6"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="5"
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        QUESTION_NUM="10"
     else
         QUESTION_NUM="3"
     fi
@@ -2302,6 +2507,8 @@ install_server_b() {
         QUESTION_NUM="7"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         QUESTION_NUM="6"
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        QUESTION_NUM="11"
     else
         QUESTION_NUM="4"
     fi
@@ -2372,6 +2579,15 @@ install_server_b() {
             fi
             print_config_item "Server Name" "$SERVER_NAME"
         fi
+    fi
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        print_config_item "KCP MTU" "$KCP_MTU"
+        print_config_item "KCP TTI" "${KCP_TTI}ms"
+        print_config_item "KCP Uplink" "${KCP_UPLINK} MB/s"
+        print_config_item "KCP Downlink" "${KCP_DOWNLINK} MB/s"
+        print_config_item "KCP Congestion" "$KCP_CONGESTION"
+        print_config_item "KCP Read Buffer" "${KCP_READ_BUFFER} MB"
+        print_config_item "KCP Write Buffer" "${KCP_WRITE_BUFFER} MB"
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Ports to Forward" "$ASSIGNED_PORTS"
@@ -2596,6 +2812,20 @@ EOF
           "serviceName": "$TRANSPORT_PATH"
         }
 EOF
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        # Server B (inbound) - KCP configuration must match Server A
+        cat > "$STREAM_SETTINGS_TEMP" << EOF
+        "network": "kcp",
+        "kcpSettings": {
+          "mtu": $KCP_MTU,
+          "tti": $KCP_TTI,
+          "uplinkCapacity": $KCP_UPLINK,
+          "downlinkCapacity": $KCP_DOWNLINK,
+          "congestion": $KCP_CONGESTION,
+          "readBufferSize": $KCP_READ_BUFFER,
+          "writeBufferSize": $KCP_WRITE_BUFFER
+        }
+EOF
     fi
     
     # Replace streamSettings placeholder
@@ -2648,7 +2878,13 @@ EOF
     print_info "Configuring firewall..."
     if command -v ufw >/dev/null 2>&1; then
         ufw allow 22/tcp
-        ufw allow "$TUNNEL_PORT/tcp"
+        # KCP uses UDP, TCP for other protocols
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            ufw allow "$TUNNEL_PORT/udp"
+            print_info "KCP detected: UDP allowed on tunnel port $TUNNEL_PORT"
+        else
+            ufw allow "$TUNNEL_PORT/tcp"
+        fi
         IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
         for port in "${PORT_ARRAY[@]}"; do
             port=$(echo "$port" | xargs) # trim whitespace
@@ -2657,6 +2893,9 @@ EOF
         print_success "Firewall configured"
     else
         print_warning "UFW not found. Please configure firewall manually for ports: $ASSIGNED_PORTS"
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            print_warning "KCP uses UDP: Please allow UDP on port $TUNNEL_PORT"
+        fi
     fi
     
     # Reload systemd and start service
