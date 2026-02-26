@@ -118,16 +118,7 @@ Built on **Xray-core v26.2.2** with cutting-edge optimizations for high user cou
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/letmefind/stealth-multiplex-tunnel-xray.git
-cd stealth-multiplex-tunnel-xray
-```
-
-#### Quick Start
-
-```bash
-# Run the unified installer
-sudo bash install
+bash <(curl -fsSL https://raw.githubusercontent.com/letmefind/stealth-multiplex-tunnel-xray/refs/heads/main/install)
 ```
 
 **What happens:**
