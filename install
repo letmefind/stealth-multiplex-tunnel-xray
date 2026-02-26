@@ -1457,7 +1457,7 @@ install_server_a() {
     done
     print_success "Server B IP: ${CYAN}${SERVER_B_IP}${NC}"
     
-    # Question 2: Tunnel Port
+    # Question 2: Tunnel Port (will be updated for KCP later)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What port should be used for the VLESS tunnel connection?"
     echo -e "${DIM}This is the port that Server A will connect to on Server B.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter tunnel port ${DIM}[8081]${NC}: \c"
@@ -1668,65 +1668,71 @@ install_server_a() {
             fi
             print_success "MTU: ${CYAN}${KCP_MTU}${NC}"
             
-            # TTI (10-100ms, default: 50)
-            echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 50]${NC}: \c"
+            # TTI (10-100ms, default: 20)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 20]${NC}: \c"
             read KCP_TTI
-            KCP_TTI="${KCP_TTI:-50}"
+            KCP_TTI="${KCP_TTI:-20}"
             if ! [[ "$KCP_TTI" =~ ^[0-9]+$ ]] || [ "$KCP_TTI" -lt 10 ] || [ "$KCP_TTI" -gt 100 ]; then
-                print_warning "Invalid TTI, using default: 50"
-                KCP_TTI="50"
+                print_warning "Invalid TTI, using default: 20"
+                KCP_TTI="20"
             fi
             print_success "TTI: ${CYAN}${KCP_TTI}${NC}"
             
-            # Uplink Capacity (default: 5 MB/s)
-            echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 5]${NC}: \c"
+            # Uplink Capacity (default: 500 MB/s)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 500]${NC}: \c"
             read KCP_UPLINK
-            KCP_UPLINK="${KCP_UPLINK:-5}"
+            KCP_UPLINK="${KCP_UPLINK:-500}"
             if ! [[ "$KCP_UPLINK" =~ ^[0-9]+$ ]]; then
-                print_warning "Invalid uplink capacity, using default: 5"
-                KCP_UPLINK="5"
+                print_warning "Invalid uplink capacity, using default: 500"
+                KCP_UPLINK="500"
             fi
             print_success "Uplink Capacity: ${CYAN}${KCP_UPLINK} MB/s${NC}"
             
-            # Downlink Capacity (default: 20 MB/s)
-            echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 20]${NC}: \c"
+            # Downlink Capacity (default: 500 MB/s)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 500]${NC}: \c"
             read KCP_DOWNLINK
-            KCP_DOWNLINK="${KCP_DOWNLINK:-20}"
+            KCP_DOWNLINK="${KCP_DOWNLINK:-500}"
             if ! [[ "$KCP_DOWNLINK" =~ ^[0-9]+$ ]]; then
-                print_warning "Invalid downlink capacity, using default: 20"
-                KCP_DOWNLINK="20"
+                print_warning "Invalid downlink capacity, using default: 500"
+                KCP_DOWNLINK="500"
             fi
             print_success "Downlink Capacity: ${CYAN}${KCP_DOWNLINK} MB/s${NC}"
             
-            # Congestion control (default: false)
-            echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[y/N]${NC}: \c"
+            # Congestion control (default: true)
+            echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[Y/n]${NC}: \c"
             read KCP_CONGESTION_INPUT
-            if [[ "$KCP_CONGESTION_INPUT" =~ ^[Yy]$ ]]; then
-                KCP_CONGESTION="true"
-            else
+            if [[ "$KCP_CONGESTION_INPUT" =~ ^[Nn]$ ]]; then
                 KCP_CONGESTION="false"
+            else
+                KCP_CONGESTION="true"
             fi
             print_success "Congestion Control: ${CYAN}${KCP_CONGESTION}${NC}"
             
-            # Read buffer size (default: 2 MB)
-            echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+            # Read buffer size (default: 32 MB)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 32]${NC}: \c"
             read KCP_READ_BUFFER
-            KCP_READ_BUFFER="${KCP_READ_BUFFER:-2}"
+            KCP_READ_BUFFER="${KCP_READ_BUFFER:-32}"
             if ! [[ "$KCP_READ_BUFFER" =~ ^[0-9]+$ ]]; then
-                print_warning "Invalid read buffer size, using default: 2"
-                KCP_READ_BUFFER="2"
+                print_warning "Invalid read buffer size, using default: 32"
+                KCP_READ_BUFFER="32"
             fi
             print_success "Read Buffer Size: ${CYAN}${KCP_READ_BUFFER} MB${NC}"
             
-            # Write buffer size (default: 2 MB)
-            echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+            # Write buffer size (default: 32 MB)
+            echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 32]${NC}: \c"
             read KCP_WRITE_BUFFER
-            KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-2}"
+            KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-32}"
             if ! [[ "$KCP_WRITE_BUFFER" =~ ^[0-9]+$ ]]; then
-                print_warning "Invalid write buffer size, using default: 2"
-                KCP_WRITE_BUFFER="2"
+                print_warning "Invalid write buffer size, using default: 32"
+                KCP_WRITE_BUFFER="32"
             fi
             print_success "Write Buffer Size: ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
+            
+            # Update Tunnel Port default to 2053 for KCP if still using default
+            if [ "$TUNNEL_PORT" = "8081" ]; then
+                TUNNEL_PORT="2053"
+                print_info "Tunnel Port updated to ${CYAN}2053${NC} (default for KCP)"
+            fi
             
             WS_DOMAIN=""
             TRANSPORT_PATH=""
@@ -2336,62 +2342,62 @@ install_server_b() {
         print_success "MTU: ${CYAN}${KCP_MTU}${NC}"
         
         # TTI
-        echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 50]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enter TTI (Transmission Time Interval in ms) ${DIM}[10-100, default: 20]${NC}: \c"
         read KCP_TTI
-        KCP_TTI="${KCP_TTI:-50}"
+        KCP_TTI="${KCP_TTI:-20}"
         if ! [[ "$KCP_TTI" =~ ^[0-9]+$ ]] || [ "$KCP_TTI" -lt 10 ] || [ "$KCP_TTI" -gt 100 ]; then
-            print_warning "Invalid TTI, using default: 50"
-            KCP_TTI="50"
+            print_warning "Invalid TTI, using default: 20"
+            KCP_TTI="20"
         fi
         print_success "TTI: ${CYAN}${KCP_TTI}${NC}"
         
         # Uplink Capacity
-        echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 5]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enter uplink capacity (MB/s) ${DIM}[default: 500]${NC}: \c"
         read KCP_UPLINK
-        KCP_UPLINK="${KCP_UPLINK:-5}"
+        KCP_UPLINK="${KCP_UPLINK:-500}"
         if ! [[ "$KCP_UPLINK" =~ ^[0-9]+$ ]]; then
-            print_warning "Invalid uplink capacity, using default: 5"
-            KCP_UPLINK="5"
+            print_warning "Invalid uplink capacity, using default: 500"
+            KCP_UPLINK="500"
         fi
         print_success "Uplink Capacity: ${CYAN}${KCP_UPLINK} MB/s${NC}"
         
         # Downlink Capacity
-        echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 20]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enter downlink capacity (MB/s) ${DIM}[default: 500]${NC}: \c"
         read KCP_DOWNLINK
-        KCP_DOWNLINK="${KCP_DOWNLINK:-20}"
+        KCP_DOWNLINK="${KCP_DOWNLINK:-500}"
         if ! [[ "$KCP_DOWNLINK" =~ ^[0-9]+$ ]]; then
-            print_warning "Invalid downlink capacity, using default: 20"
-            KCP_DOWNLINK="20"
+            print_warning "Invalid downlink capacity, using default: 500"
+            KCP_DOWNLINK="500"
         fi
         print_success "Downlink Capacity: ${CYAN}${KCP_DOWNLINK} MB/s${NC}"
         
         # Congestion control
-        echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[y/N]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enable congestion control? ${DIM}[Y/n]${NC}: \c"
         read KCP_CONGESTION_INPUT
-        if [[ "$KCP_CONGESTION_INPUT" =~ ^[Yy]$ ]]; then
-            KCP_CONGESTION="true"
-        else
+        if [[ "$KCP_CONGESTION_INPUT" =~ ^[Nn]$ ]]; then
             KCP_CONGESTION="false"
+        else
+            KCP_CONGESTION="true"
         fi
         print_success "Congestion Control: ${CYAN}${KCP_CONGESTION}${NC}"
         
         # Read buffer size
-        echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enter read buffer size (MB) ${DIM}[default: 32]${NC}: \c"
         read KCP_READ_BUFFER
-        KCP_READ_BUFFER="${KCP_READ_BUFFER:-2}"
+        KCP_READ_BUFFER="${KCP_READ_BUFFER:-32}"
         if ! [[ "$KCP_READ_BUFFER" =~ ^[0-9]+$ ]]; then
-            print_warning "Invalid read buffer size, using default: 2"
-            KCP_READ_BUFFER="2"
+            print_warning "Invalid read buffer size, using default: 32"
+            KCP_READ_BUFFER="32"
         fi
         print_success "Read Buffer Size: ${CYAN}${KCP_READ_BUFFER} MB${NC}"
         
         # Write buffer size
-        echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 2]${NC}: \c"
+        echo -e "\n${CYAN}${ARROW}${NC} Enter write buffer size (MB) ${DIM}[default: 32]${NC}: \c"
         read KCP_WRITE_BUFFER
-        KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-2}"
+        KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-32}"
         if ! [[ "$KCP_WRITE_BUFFER" =~ ^[0-9]+$ ]]; then
-            print_warning "Invalid write buffer size, using default: 2"
-            KCP_WRITE_BUFFER="2"
+            print_warning "Invalid write buffer size, using default: 32"
+            KCP_WRITE_BUFFER="32"
         fi
         print_success "Write Buffer Size: ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
         
@@ -2480,9 +2486,15 @@ install_server_b() {
     fi
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Tunnel Port from Server A installation?"
     echo -e "${DIM}This is the port you used for VLESS connection on Server A.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[8081]${NC}: \c"
+    # Set default tunnel port based on transport protocol
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        DEFAULT_TUNNEL_PORT="2053"
+    else
+        DEFAULT_TUNNEL_PORT="8081"
+    fi
+    echo -e "${CYAN}${ARROW}${NC} Enter Tunnel Port ${DIM}[${DEFAULT_TUNNEL_PORT}]${NC}: \c"
     read TUNNEL_PORT
-    TUNNEL_PORT="${TUNNEL_PORT:-8081}"
+    TUNNEL_PORT="${TUNNEL_PORT:-$DEFAULT_TUNNEL_PORT}"
     
     while ! validate_port "$TUNNEL_PORT"; do
         if [ "$TUNNEL_PORT" -ge 1 ] && [ "$TUNNEL_PORT" -le 10 ]; then
@@ -2517,9 +2529,15 @@ install_server_b() {
     echo -e "${DIM}Traffic from Server A on port 80 will be forwarded to 127.0.0.1:80${NC}"
     echo -e "${DIM}Traffic from Server A on port 8080 will be forwarded to 127.0.0.1:8080${NC}"
     echo -e "${DIM}Ports are preserved - same port in = same port out${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter ports ${DIM}[80,8080,8443]${NC}: \c"
+    # Set default ports based on transport protocol
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        DEFAULT_PORTS="8080,8443"
+    else
+        DEFAULT_PORTS="80,8080,8443"
+    fi
+    echo -e "${CYAN}${ARROW}${NC} Enter ports ${DIM}[${DEFAULT_PORTS}]${NC}: \c"
     read ASSIGNED_PORTS
-    ASSIGNED_PORTS="${ASSIGNED_PORTS:-80,8080,8443}"
+    ASSIGNED_PORTS="${ASSIGNED_PORTS:-$DEFAULT_PORTS}"
     
     # Validate all ports
     IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
