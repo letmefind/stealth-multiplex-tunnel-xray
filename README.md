@@ -39,6 +39,15 @@ sudo bash install --help
 
 Use the same transport and protocol settings on every hop. Server M only relays; it does not terminate user traffic like B.
 
+**UUIDs (two separate legs — they must not be the same):**
+
+| Leg | Who generates | Must match on |
+|-----|----------------|---------------|
+| **M → B** | Server B at install | M outbound `UUID_B` = B inbound `UUID` |
+| **A → M** | Server M at install | A outbound `UUID` = M inbound `UUID` |
+
+During **Server A** setup (middle), enter the **A→M** UUID and Reality public key from **Server M** output — do not use B’s M→B UUID.
+
 ## Transports
 
 During install on A and B, choose one protocol (must match on both sides):

@@ -1782,32 +1782,64 @@ install_server_a() {
         SERVER_NAME=""
     fi
     
-    # Generate keys only if using Reality
-    # Note: XHTTP without Reality doesn't need keys
-    if [ "$USE_REALITY" = true ]; then
-        generate_reality_keys
-    else
-        PUBLIC_KEY=""
-        PRIVATE_KEY=""
-        SHORT_IDS=""
-        SHORT_ID=""
-    fi
-    
-    # Generate UUID
-    UUID=$(generate_uuid)
-    print_success "Generated UUID: ${CYAN}${UUID}${NC}"
-    
-    # Generate seed for post-quantum cryptography (only for TCP + Reality)
+    # Credentials for outbound tunnel (direct: A generates | middle: from Server M install)
     SEED=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
-        SEED_OUTPUT=$(xray mlkem768 2>&1)
-        SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
-        if [ -z "$SEED" ]; then
-            SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Credentials from Server M (A→M leg)${NC}"
+        echo -e "${DIM}Install order: B → M → A. Use values shown when you installed Server M.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} UUID (from Server M): \c"
+        read UUID
+        if [ -z "$UUID" ]; then
+            print_error "UUID from Server M is required"
+            exit 1
         fi
-        if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
-            export SEED
-            print_success "Generated seed for post-quantum cryptography: ${CYAN}${SEED}${NC}"
+        print_success "UUID: ${CYAN}${UUID}${NC}"
+        if [ "$USE_REALITY" = true ]; then
+            echo -e "${CYAN}${ARROW}${NC} Public Key (from Server M): \c"
+            read PUBLIC_KEY
+            echo -e "${CYAN}${ARROW}${NC} Short ID (from Server M): \c"
+            read SHORT_ID
+            SHORT_ID=$(echo "$SHORT_ID" | sed 's/"//g' | xargs)
+            SHORT_IDS="\"$SHORT_ID\""
+            if [ -z "$PUBLIC_KEY" ] || [ -z "$SHORT_ID" ]; then
+                print_error "Public Key and Short ID from Server M are required"
+                exit 1
+            fi
+            if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+                echo -e "${CYAN}${ARROW}${NC} Seed (from Server M, TCP+Reality): \c"
+                read SEED
+            fi
+            PRIVATE_KEY=""
+            print_success "Reality credentials loaded from Server M"
+        else
+            PUBLIC_KEY=""
+            PRIVATE_KEY=""
+            SHORT_IDS=""
+            SHORT_ID=""
+        fi
+    else
+        # Generate keys only if using Reality (direct A→B)
+        if [ "$USE_REALITY" = true ]; then
+            generate_reality_keys
+        else
+            PUBLIC_KEY=""
+            PRIVATE_KEY=""
+            SHORT_IDS=""
+            SHORT_ID=""
+        fi
+        UUID=$(generate_uuid)
+        print_success "Generated UUID: ${CYAN}${UUID}${NC}"
+        # Generate seed for post-quantum cryptography (only for TCP + Reality)
+        if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ] && command -v xray >/dev/null 2>&1; then
+            SEED_OUTPUT=$(xray mlkem768 2>&1)
+            SEED=$(echo "$SEED_OUTPUT" | grep -i "Seed" | sed 's/.*Seed:[[:space:]]*//' | sed 's/[[:space:]]*$//' | head -1)
+            if [ -z "$SEED" ]; then
+                SEED=$(echo "$SEED_OUTPUT" | grep -oE '[A-Za-z0-9+/_-]{43}={0,1}' | head -1)
+            fi
+            if [ -n "$SEED" ] && [ ${#SEED} -ge 40 ]; then
+                export SEED
+                print_success "Generated seed for post-quantum cryptography: ${CYAN}${SEED}${NC}"
+            fi
         fi
     fi
     
@@ -1843,14 +1875,26 @@ install_server_a() {
     fi
     if [ "$USE_REALITY" = true ]; then
         print_config_item "Server Name" "$SERVER_NAME"
-        print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
-        print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
-        print_config_item "Short ID" "$SHORT_ID"
-        if [ -n "$SEED" ]; then
-            print_config_item "Seed (for Server B)" "$SEED"
+        if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+            print_config_item "Public Key (from Server M)" "$PUBLIC_KEY"
+            print_config_item "Short ID (from Server M)" "$SHORT_ID"
+            if [ -n "$SEED" ]; then
+                print_config_item "Seed (from Server M)" "$SEED"
+            fi
+        else
+            print_config_item "Public Key (for Server A)" "$PUBLIC_KEY"
+            print_config_item "Private Key (for Server B)" "$PRIVATE_KEY"
+            print_config_item "Short ID" "$SHORT_ID"
+            if [ -n "$SEED" ]; then
+                print_config_item "Seed (for Server B)" "$SEED"
+            fi
         fi
     fi
-    print_config_item "UUID" "$UUID"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        print_config_item "UUID (from Server M)" "$UUID"
+    else
+        print_config_item "UUID" "$UUID"
+    fi
     print_section_end
     
     # Confirm installation
@@ -2188,11 +2232,11 @@ EOF
     print_info "Logs location: /var/log/xray/"
     echo
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
-        print_warning "IMPORTANT: Save these details for Server M installation:"
+        print_info "Middle topology: outbound uses credentials from Server M (A→M leg)."
     else
         print_warning "IMPORTANT: Save these details for Server B installation:"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     fi
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
         if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
@@ -2216,7 +2260,7 @@ EOF
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Read Buffer (for Server B):${NC} ${CYAN}${KCP_READ_BUFFER} MB${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP Write Buffer (for Server B):${NC} ${CYAN}${KCP_WRITE_BUFFER} MB${NC}"
     fi
-    if [ "$USE_REALITY" = true ]; then
+    if [ "$USE_REALITY" = true ] && [ "$TUNNEL_TOPOLOGY" != "middle" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Private Key (for Server B):${NC} ${CYAN}${PRIVATE_KEY}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
         if [ -n "$SEED" ]; then
@@ -2226,7 +2270,7 @@ EOF
     fi
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
     echo
-    if [ "$USE_REALITY" = true ]; then
+    if [ "$USE_REALITY" = true ] && [ "$TUNNEL_TOPOLOGY" != "middle" ]; then
         print_info "Note: Public Key is already configured in Server A, Private Key and Seed go to Server B"
     fi
     print_section_end
@@ -3534,14 +3578,14 @@ EOF
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server M"
         print_warning "Next: install Server M, then Server A"
+        echo
+        print_warning "Save for Server M (M→B leg):"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
         if [ "$USE_REALITY" = true ]; then
-            echo
-            print_warning "Save for Server M (M→B leg):"
-            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
             echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
             echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
             echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
-            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
             if [ -n "$SERVER_B_SEED" ]; then
                 echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Seed:${NC} ${CYAN}${SERVER_B_SEED}${NC}"
             fi
