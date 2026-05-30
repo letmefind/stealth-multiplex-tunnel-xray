@@ -37,6 +37,9 @@ CROSS="✗"
 STAR="✦"
 DOT="•"
 
+# Tunnel topology: direct (A→B) or middle (A→M→B)
+TUNNEL_TOPOLOGY="${TUNNEL_TOPOLOGY:-direct}"
+
 # Function to print with modern styling
 print_header() {
     echo -e "${CYAN}${BOLD}"
@@ -778,14 +781,33 @@ validate_ip() {
     return 1
 }
 
+# Function to show topology selection menu
+show_topology_menu() {
+    print_section "Tunnel Topology"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Choose tunnel routing:${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}Direct A → B${NC} ${DIM}- Standard two-server tunnel (default)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Via Middle A → M → B${NC} ${DIM}- Relay through middle server${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Install order for middle: B → M → A${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Same transport protocol on all hops${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
+    print_section_end
+}
+
 # Function to show server selection menu
 show_server_menu() {
     print_section "Server Type Selection"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Choose your server type:${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}Server A (Tunnel Server)${NC} ${DIM}- Receives traffic and forwards to Server B${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}Server A (Tunnel Server)${NC} ${DIM}- Receives traffic and forwards downstream${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Server B (Destination Server)${NC} ${DIM}- Receives tunneled traffic and routes to services${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Auto-detect${NC} ${DIM}- Automatically detect server type${NC}"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Server M (Middle / Relay)${NC} ${DIM}- Relays A → M → B${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}Auto-detect${NC} ${DIM}- Automatically detect server type${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Recommended order: B → M → A${NC}"
+    else
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Auto-detect${NC} ${DIM}- Automatically detect server type${NC}"
+    fi
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     print_section_end
 }
@@ -1437,29 +1459,43 @@ install_server_a() {
         exit 1
     fi
     
-    # Question 1: Server B IP or Domain (Domain for WebSocket, IP for others)
-    # Note: We'll ask for transport protocol first, then ask appropriate question
-    # For now, we'll ask for IP, but if WebSocket is selected, we'll update it to domain
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the IP address of Server B (destination server)?"
-    echo -e "${DIM}This is the server where your tunneled traffic will be sent.${NC}"
+    # Question 1: Server B IP or Middle server IP
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        NEXT_HOP_LABEL="Server M (middle server)"
+        NEXT_HOP_HINT="Server A connects to M; M relays traffic to Server B."
+    else
+        NEXT_HOP_LABEL="Server B (destination server)"
+        NEXT_HOP_HINT="This is the server where your tunneled traffic will be sent."
+    fi
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the IP address of ${NEXT_HOP_LABEL}?"
+    echo -e "${DIM}${NEXT_HOP_HINT}${NC}"
     echo -e "${DIM}Note: For WebSocket, you'll be asked for domain name later.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address: \c"
+    echo -e "${CYAN}${ARROW}${NC} Enter IP address: \c"
     read SERVER_B_IP
     
     while [ -z "$SERVER_B_IP" ] || ! validate_ip "$SERVER_B_IP"; do
         if [ -z "$SERVER_B_IP" ]; then
-            print_error "Server B IP address is required. Please enter a valid IP address."
+            print_error "IP address is required. Please enter a valid IP address."
         else
             print_error "Invalid IP address format. Please enter a valid IP like 192.168.1.100"
         fi
-        echo -e "${CYAN}${ARROW}${NC} Enter Server B IP address: \c"
+        echo -e "${CYAN}${ARROW}${NC} Enter IP address: \c"
         read SERVER_B_IP
     done
-    print_success "Server B IP: ${CYAN}${SERVER_B_IP}${NC}"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        print_success "Server M IP: ${CYAN}${SERVER_B_IP}${NC}"
+    else
+        print_success "Server B IP: ${CYAN}${SERVER_B_IP}${NC}"
+    fi
     
-    # Question 2: Tunnel Port (will be updated for KCP later)
+    # Question 2: Tunnel Port
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        TUNNEL_TARGET_HINT="Server M"
+    else
+        TUNNEL_TARGET_HINT="Server B"
+    fi
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What port should be used for the VLESS tunnel connection?"
-    echo -e "${DIM}This is the port that Server A will connect to on Server B.${NC}"
+    echo -e "${DIM}This is the port that Server A will connect to on ${TUNNEL_TARGET_HINT}.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter tunnel port ${DIM}[8081]${NC}: \c"
     read TUNNEL_PORT
     TUNNEL_PORT="${TUNNEL_PORT:-8081}"
@@ -2148,11 +2184,19 @@ EOF
     print_info "Service: xray-a.service"
     print_info "Logs location: /var/log/xray/"
     echo
-    print_warning "IMPORTANT: Save these details for Server B installation:"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        print_warning "IMPORTANT: Save these details for Server M installation:"
+    else
+        print_warning "IMPORTANT: Save these details for Server B installation:"
+    fi
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${WS_DOMAIN}${NC}"
+        if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server M):${NC} ${CYAN}${WS_DOMAIN}${NC}"
+        else
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${WS_DOMAIN}${NC}"
+        fi
     fi
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] && [ -n "$XHTTP_DOMAIN" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server B):${NC} ${CYAN}${XHTTP_DOMAIN}${NC}"
@@ -2185,14 +2229,519 @@ EOF
     print_section_end
 }
 
+# Write streamSettings JSON fragment to file (role: inbound | outbound)
+# Uses globals: TRANSPORT_PROTOCOL, USE_REALITY, PRIVATE_KEY, PUBLIC_KEY, SHORT_ID,
+# SERVER_NAME, TRANSPORT_PATH, WS_DOMAIN, XHTTP_DOMAIN, KCP_* , SEED, SERVER_B_SHORT_IDS
+write_stream_settings() {
+    local role="$1"
+    local outfile="$2"
+    local short_id_val="${SHORT_ID}"
+    if [ "$role" = "inbound" ] && [ -n "$SERVER_B_SHORT_IDS" ]; then
+        short_id_val=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
+    fi
+
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        if [ "$USE_REALITY" = true ]; then
+            if [ "$role" = "inbound" ]; then
+                cat > "$outfile" << EOF
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$SERVER_NAME"],
+          "privateKey": "$PRIVATE_KEY",
+          "shortIds": ["$short_id_val"]
+        },
+        "splithttpSettings": {
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "packet-up"
+        }
+EOF
+            else
+                cat > "$outfile" << EOF
+        "network": "splithttp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "$SERVER_NAME",
+          "publicKey": "$PUBLIC_KEY",
+          "shortId": "$short_id_val",
+          "fingerprint": "chrome",
+          "spiderX": "/"
+        },
+        "splithttpSettings": {
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "packet-up"
+        }
+EOF
+            fi
+        else
+            cat > "$outfile" << EOF
+        "network": "splithttp",
+        "splithttpSettings": {
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "scMaxEachPostBytes": 4194304,
+          "scMaxConcurrentPosts": 8,
+          "scMinPostsIntervalMs": 10,
+          "noSSEHeader": false,
+          "noGRPCHeader": true,
+          "xPaddingBytes": 0,
+          "keepaliveperiod": 120,
+          "mode": "packet-up"
+        }
+EOF
+        fi
+    elif [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+        if [ "$USE_REALITY" = true ]; then
+            if [ "$role" = "inbound" ]; then
+                cat > "$outfile" << EOF
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "serverNames": ["$SERVER_NAME"],
+          "privateKey": "$PRIVATE_KEY",
+          "shortIds": ["$short_id_val"]
+        },
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": { "type": "none" }
+        }
+EOF
+            else
+                cat > "$outfile" << EOF
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "$SERVER_NAME",
+          "publicKey": "$PUBLIC_KEY",
+          "shortId": "$short_id_val",
+          "fingerprint": "chrome",
+          "spiderX": "/"
+        },
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": { "type": "none" }
+        }
+EOF
+            fi
+        else
+            cat > "$outfile" << EOF
+        "network": "tcp",
+        "tcpSettings": {
+          "acceptProxyProtocol": false,
+          "header": { "type": "none" }
+        }
+EOF
+        fi
+    elif [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        if [ -n "$WS_DOMAIN" ]; then
+            cat > "$outfile" << EOF
+        "network": "ws",
+        "wsSettings": {
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "host": "$WS_DOMAIN"
+        }
+EOF
+        else
+            cat > "$outfile" << EOF
+        "network": "ws",
+        "wsSettings": {
+          "path": "${TRANSPORT_PATH:-/assets}"
+        }
+EOF
+        fi
+    elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        if [ "$role" = "outbound" ]; then
+            cat > "$outfile" << EOF
+        "network": "grpc",
+        "grpcSettings": {
+          "serviceName": "${TRANSPORT_PATH:-/xray.XrayService}",
+          "multiMode": true,
+          "idle_timeout": 60,
+          "health_check_timeout": 20,
+          "permit_without_stream": false,
+          "initial_windows_size": 65535
+        }
+EOF
+        else
+            cat > "$outfile" << EOF
+        "network": "grpc",
+        "grpcSettings": {
+          "serviceName": "${TRANSPORT_PATH:-/xray.XrayService}"
+        }
+EOF
+        fi
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        cat > "$outfile" << EOF
+        "network": "kcp",
+        "kcpSettings": {
+          "mtu": ${KCP_MTU:-1350},
+          "tti": ${KCP_TTI:-20},
+          "uplinkCapacity": ${KCP_UPLINK:-500},
+          "downlinkCapacity": ${KCP_DOWNLINK:-500},
+          "congestion": ${KCP_CONGESTION:-true},
+          "readBufferSize": ${KCP_READ_BUFFER:-32},
+          "writeBufferSize": ${KCP_WRITE_BUFFER:-32}
+        }
+EOF
+    fi
+}
+
+# Function to install Server M (Middle relay: A → M → B)
+install_server_m() {
+    print_section "Server M (Middle Relay) Configuration"
+    print_info "Topology: Client → Server A → Server M → Server B"
+    echo
+    print_warning "Install order: Server B first, then Server M, then Server A"
+    print_info "Use the same transport protocol on A, M, and B."
+    echo
+
+    if ! [ -t 0 ]; then
+        print_error "Input not available. Please run interactively."
+        exit 1
+    fi
+
+    # Transport protocol (same menu as A/B)
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} Which transport protocol for this tunnel?"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} XHTTP (SplitHTTP) + Reality"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} XHTTP (SplitHTTP)"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} TCP Raw"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} TCP + Reality"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} WebSocket"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} GRPC"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} KCP (mKCP)"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
+    read TRANSPORT_CHOICE
+    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
+    case $TRANSPORT_CHOICE in
+        1) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=true ;;
+        2) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false ;;
+        3) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=false ;;
+        4) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=true ;;
+        5) TRANSPORT_PROTOCOL="ws"; USE_REALITY=false ;;
+        6) TRANSPORT_PROTOCOL="grpc"; USE_REALITY=false ;;
+        7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
+        *) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=true ;;
+    esac
+    print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+
+    # Server B (downstream destination for M→B leg)
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is Server B IP address?"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server B IP: \c"
+    read SERVER_B_DEST_IP
+    while [ -z "$SERVER_B_DEST_IP" ] || ! validate_ip "$SERVER_B_DEST_IP"; do
+        print_error "Valid Server B IP required"
+        echo -e "${CYAN}${ARROW}${NC} Enter Server B IP: \c"
+        read SERVER_B_DEST_IP
+    done
+    print_success "Server B IP: ${CYAN}${SERVER_B_DEST_IP}${NC}"
+
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What tunnel port does Server B listen on? (M→B)"
+    echo -e "${DIM}From Server B installation (tunnel-in port).${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter Server B tunnel port ${DIM}[8081]${NC}: \c"
+    read TUNNEL_PORT_B
+    TUNNEL_PORT_B="${TUNNEL_PORT_B:-8081}"
+    while ! validate_port "$TUNNEL_PORT_B"; do
+        print_error "Invalid port (11-65535)"
+        echo -e "${CYAN}${ARROW}${NC} Enter Server B tunnel port: \c"
+        read TUNNEL_PORT_B
+    done
+    print_success "Server B tunnel port: ${CYAN}${TUNNEL_PORT_B}${NC}"
+
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What port should Server M listen on for Server A? (A→M)"
+    if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        TUNNEL_PORT_DEFAULT="2053"
+    else
+        TUNNEL_PORT_DEFAULT="8081"
+    fi
+    echo -e "${CYAN}${ARROW}${NC} Enter M tunnel port ${DIM}[${TUNNEL_PORT_DEFAULT}]${NC}: \c"
+    read TUNNEL_PORT
+    TUNNEL_PORT="${TUNNEL_PORT:-$TUNNEL_PORT_DEFAULT}"
+    while ! validate_port "$TUNNEL_PORT"; do
+        print_error "Invalid port (11-65535)"
+        echo -e "${CYAN}${ARROW}${NC} Enter M tunnel port: \c"
+        read TUNNEL_PORT
+        TUNNEL_PORT="${TUNNEL_PORT:-$TUNNEL_PORT_DEFAULT}"
+    done
+    print_success "M tunnel port (A connects here): ${CYAN}${TUNNEL_PORT}${NC}"
+
+    TRANSPORT_PATH=""
+    WS_DOMAIN=""
+    XHTTP_DOMAIN=""
+    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ] || [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} Enter transport path ${DIM}[/assets]${NC}: \c"
+        read TRANSPORT_PATH
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
+    elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} Enter GRPC service name ${DIM}[/xray.XrayService]${NC}: \c"
+        read TRANSPORT_PATH
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
+    elif [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        KCP_MTU="${KCP_MTU:-1350}"
+        KCP_TTI="${KCP_TTI:-20}"
+        KCP_UPLINK="${KCP_UPLINK:-500}"
+        KCP_DOWNLINK="${KCP_DOWNLINK:-500}"
+        KCP_CONGESTION="${KCP_CONGESTION:-true}"
+        KCP_READ_BUFFER="${KCP_READ_BUFFER:-32}"
+        KCP_WRITE_BUFFER="${KCP_WRITE_BUFFER:-32}"
+    fi
+
+    # Credentials from Server B (M→B outbound leg)
+    UUID_B=""
+    if [ "$USE_REALITY" = true ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 5:${NC} M→B credentials from Server B installation"
+        echo -e "${DIM}Enter values shown when you installed Server B (middle topology).${NC}"
+        echo -e "${CYAN}${ARROW}${NC} UUID (from Server B): \c"
+        read UUID_B
+        echo -e "${CYAN}${ARROW}${NC} Public Key (from Server B, for M outbound): \c"
+        read PUBLIC_KEY_B
+        echo -e "${CYAN}${ARROW}${NC} Short ID (from Server B): \c"
+        read SHORT_ID_B
+        SHORT_ID_B=$(echo "$SHORT_ID_B" | sed 's/"//g' | xargs)
+        echo -e "${CYAN}${ARROW}${NC} Server Name ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+        read SERVER_NAME_B
+        SERVER_NAME_B="${SERVER_NAME_B:-www.accounts.accesscontrol.windows.net}"
+        if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+            echo -e "${CYAN}${ARROW}${NC} Seed (from Server B, TCP+Reality): \c"
+            read SEED_B
+        else
+            SEED_B=""
+        fi
+    else
+        echo -e "\n${CYAN}${ARROW}${NC} UUID from Server B installation (M→B): \c"
+        read UUID_B
+        SERVER_NAME_B=""
+        PUBLIC_KEY_B=""
+        SHORT_ID_B=""
+        SEED_B=""
+    fi
+    if [ -z "$UUID_B" ]; then
+        print_error "UUID from Server B is required"
+        exit 1
+    fi
+
+    # Generate inbound credentials (A→M): new keys on M
+    UUID=$(generate_uuid)
+    if [ "$USE_REALITY" = true ]; then
+        generate_reality_keys
+        SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+        if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+            SEED=$(xray mlkem768 2>/dev/null | grep -i seed | awk '{print $NF}' | head -1)
+            [ -z "$SEED" ] && SEED=$(openssl rand -hex 32 2>/dev/null || echo "")
+        fi
+    else
+        PUBLIC_KEY=""
+        PRIVATE_KEY=""
+        SHORT_ID=""
+        SERVER_B_SHORT_IDS=""
+        SEED=""
+    fi
+
+    print_section "Configuration Summary"
+    print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    print_config_item "Server B (downstream)" "$SERVER_B_DEST_IP:$TUNNEL_PORT_B"
+    print_config_item "M listen port (A→M)" "$TUNNEL_PORT"
+    print_config_item "UUID (A→M, for Server A)" "$UUID"
+    if [ "$USE_REALITY" = true ]; then
+        print_config_item "Public Key (A→M)" "$PUBLIC_KEY"
+        print_config_item "Short ID (A→M)" "$SHORT_ID"
+    fi
+    print_section_end
+
+    if ! confirm "Proceed with Server M installation?"; then
+        print_warning "Installation cancelled"
+        exit 0
+    fi
+
+    print_section "Installing Xray"
+    if ! command -v xray >/dev/null 2>&1; then
+        install_xray_offline
+    else
+        print_success "Xray is already installed"
+    fi
+    print_section_end
+
+    mkdir -p /etc/xray /var/log/xray
+    chown -R root:root /var/log/xray
+    chmod -R 755 /var/log/xray
+
+    FLOW_IN=""
+    SEED_IN=""
+    FLOW_OUT=""
+    SEED_OUT=""
+    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
+        FLOW_IN=', "flow": "xtls-rprx-vision"'
+        FLOW_OUT=', "flow": "xtls-rprx-vision"'
+        [ -n "$SEED" ] && SEED_IN=", \"seed\": \"$SEED\""
+        [ -n "$SEED_B" ] && SEED_OUT=", \"seed\": \"$SEED_B\""
+    fi
+
+    M_PUBLIC_KEY_IN="$PUBLIC_KEY"
+    M_SHORT_ID_IN="$SHORT_ID"
+    M_SERVER_NAME_IN="$SERVER_NAME"
+
+    STREAM_IN=$(mktemp)
+    STREAM_OUT=$(mktemp)
+    SERVER_B_SHORT_IDS="\"$SHORT_ID\""
+    write_stream_settings inbound "$STREAM_IN"
+
+    PUBLIC_KEY="$PUBLIC_KEY_B"
+    SHORT_ID="$SHORT_ID_B"
+    SERVER_NAME="$SERVER_NAME_B"
+    write_stream_settings outbound "$STREAM_OUT"
+
+    TEMP_M=$(mktemp)
+    cat > "$TEMP_M" << MEOF
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "tunnel-in",
+      "listen": "0.0.0.0",
+      "port": $TUNNEL_PORT,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "$UUID"$FLOW_IN$SEED_IN }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+MEOF
+    cat "$STREAM_IN" >> "$TEMP_M"
+    cat >> "$TEMP_M" << MEOF2
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "to-b",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$SERVER_B_DEST_IP",
+            "port": $TUNNEL_PORT_B,
+            "users": [
+              { "id": "$UUID_B", "encryption": "none"$FLOW_OUT$SEED_OUT }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+MEOF2
+    cat "$STREAM_OUT" >> "$TEMP_M"
+    cat >> "$TEMP_M" << MEOF3
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      { "type": "field", "inboundTag": ["tunnel-in"], "outboundTag": "to-b" }
+    ]
+  }
+}
+MEOF3
+    mv "$TEMP_M" /etc/xray/m.json
+    chown root:root /etc/xray/m.json
+    chmod 644 /etc/xray/m.json
+    rm -f "$STREAM_IN" "$STREAM_OUT"
+
+    cat > /etc/systemd/system/xray-m.service << 'EOF'
+[Unit]
+Description=Xray Service (Server M - Middle Relay)
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /etc/xray/m.json
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    if command -v ufw >/dev/null 2>&1; then
+        ufw allow 22/tcp
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+            ufw allow "$TUNNEL_PORT/udp"
+            ufw allow "$TUNNEL_PORT_B/udp" 2>/dev/null || true
+        else
+            ufw allow "$TUNNEL_PORT/tcp"
+        fi
+    fi
+
+    systemctl daemon-reload
+    systemctl enable xray-m
+    systemctl restart xray-m
+    sleep 2
+    if systemctl is-active --quiet xray-m; then
+        print_success "xray-m.service is running"
+    else
+        print_warning "xray-m.service may not have started - check: journalctl -u xray-m -n 30"
+    fi
+
+    print_success "Server M installation completed!"
+    echo
+    print_warning "IMPORTANT: Save for Server A installation:"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server M IP:${NC} ${CYAN}$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}M tunnel port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    if [ "$USE_REALITY" = true ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${M_PUBLIC_KEY_IN}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${M_SHORT_ID_IN}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${M_SERVER_NAME_IN}${NC}"
+        if [ -n "$SEED" ]; then
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Seed (A→M):${NC} ${CYAN}${SEED}${NC}"
+        fi
+    fi
+    print_section_end
+}
+
 # Function to install Server B
 install_server_b() {
     print_section "Server B Configuration"
     
     print_info "I will ask you for each configuration detail one by one."
     echo
-    print_warning "You need the details from Server A installation first!"
-    echo
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        print_warning "Middle topology (A→M→B): traffic arrives from Server M, not directly from A."
+        print_info "Recommended order: install Server B now, then Server M, then Server A."
+        echo
+    else
+        print_warning "You need the details from Server A installation first!"
+        echo
+    fi
     
     # Ensure we can read input
     if ! [ -t 0 ]; then
@@ -2200,20 +2749,27 @@ install_server_b() {
         exit 1
     fi
     
-    # Question 1: UUID from Server A
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the UUID from Server A installation?"
-    echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter UUID: \c"
-    read UUID
-    if [ -z "$UUID" ]; then
-        print_error "UUID is required. Please enter the UUID from Server A."
-        exit 1
+    # Question 1: UUID (direct: from A | middle: generated on B for M→B leg)
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} What is the UUID from Server A installation?"
+        echo -e "${DIM}This was generated and shown to you during Server A setup.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Enter UUID: \c"
+        read UUID
+        if [ -z "$UUID" ]; then
+            print_error "UUID is required. Please enter the UUID from Server A."
+            exit 1
+        fi
+        print_success "UUID: ${CYAN}${UUID}${NC}"
     fi
-    print_success "UUID: ${CYAN}${UUID}${NC}"
     
-    # Question 2: Transport Protocol from Server A (must be asked first!)
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What transport protocol was used on Server A?"
-    echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
+    # Transport protocol selection
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} Which transport protocol for this tunnel?"
+        echo -e "${DIM}Must match Server M and Server A (same on all hops).${NC}"
+    else
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What transport protocol was used on Server A?"
+        echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
+    fi
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- Without Reality (fast + CDN)${NC}"
@@ -2264,9 +2820,36 @@ install_server_b() {
     esac
     print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
     
+    # Middle topology: generate B inbound credentials for M→B (do not use A's keys)
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        UUID=$(generate_uuid)
+        print_success "Generated UUID for M→B leg: ${CYAN}${UUID}${NC}"
+        if [ "$USE_REALITY" = true ]; then
+            generate_reality_keys
+            SERVER_B_PRIVATE_KEY="$PRIVATE_KEY"
+            SERVER_B_SHORT_IDS="\"$SHORT_ID\""
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Reality Server Name (SNI)${NC} ${DIM}[www.accounts.accesscontrol.windows.net]${NC}: \c"
+            read SERVER_NAME
+            SERVER_NAME="${SERVER_NAME:-www.accounts.accesscontrol.windows.net}"
+            if [ "$TRANSPORT_PROTOCOL" = "tcp" ]; then
+                SEED=$(xray mlkem768 2>/dev/null | grep -i seed | awk '{print $NF}' | head -1)
+                [ -z "$SEED" ] && SEED=$(openssl rand -hex 32 2>/dev/null || echo "")
+                print_success "Seed (share with Server M): ${CYAN}${SEED}${NC}"
+            fi
+            print_warning "Save for Server M (M→B outbound): UUID, Public Key, Short ID, Server Name"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+        else
+            SERVER_B_PRIVATE_KEY=""
+            SERVER_B_SHORT_IDS=""
+            SERVER_NAME=""
+            SEED=""
+        fi
+    fi
+    
     # Question 3: Domain (for XHTTP) or Private Key (for other Reality protocols)
     XHTTP_DOMAIN=""
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ] && [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} What domain name was used on Server A?"
         echo -e "${DIM}This is the domain name used for XHTTP tunnel on Server A.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter domain name: \c"
@@ -2279,7 +2862,7 @@ install_server_b() {
     fi
     
     # Question 3/4: Private Key (only if using Reality with XHTTP or other protocols)
-    if [ "$USE_REALITY" = true ]; then
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ] && [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
             QUESTION_NUM="4"
         else
@@ -2294,13 +2877,13 @@ install_server_b() {
             exit 1
         fi
         print_success "Private Key: ${CYAN}${SERVER_B_PRIVATE_KEY}${NC}"
-    else
+    elif [ "$TUNNEL_TOPOLOGY" != "middle" ]; then
         SERVER_B_PRIVATE_KEY=""
     fi
     
     # Question 4: Domain and Path (if WebSocket) or Service Name (if GRPC)
     WS_DOMAIN=""
-    if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ] && [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
         # For WebSocket, ask for domain name first
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What domain name was used on Server A?"
         echo -e "${DIM}This is the domain name used for WebSocket on Server A.${NC}"
@@ -2319,6 +2902,11 @@ install_server_b() {
         read TRANSPORT_PATH
         TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
         print_success "Path: ${CYAN}${TRANSPORT_PATH}${NC}"
+    elif [ "$TUNNEL_TOPOLOGY" = "middle" ] && [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/assets}"
+    elif [ "$TUNNEL_TOPOLOGY" = "middle" ] && [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
+        TRANSPORT_PATH="${TRANSPORT_PATH:-/xray.XrayService}"
+        print_success "GRPC service: ${CYAN}${TRANSPORT_PATH}${NC}"
     elif [ "$TRANSPORT_PROTOCOL" = "grpc" ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} What service name was used on Server A?"
         echo -e "${DIM}This is the GRPC service name used on Server A.${NC}"
@@ -2406,8 +2994,8 @@ install_server_b() {
         TRANSPORT_PATH=""
     fi
     
-    # Question 5/6/7: Short IDs (only if using Reality)
-    if [ "$USE_REALITY" = true ]; then
+    # Question 5/6/7: Short IDs (only if using Reality, direct topology only)
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ] && [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             QUESTION_NUM="6"
         elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2433,7 +3021,9 @@ install_server_b() {
     
     # Question 6: Seed (only for TCP + Reality)
     SERVER_B_SEED=""
-    if [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ] && [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
+        SERVER_B_SEED="$SEED"
+    elif [ "$TRANSPORT_PROTOCOL" = "tcp" ] && [ "$USE_REALITY" = true ]; then
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 6:${NC} What is the Seed from Server A installation?"
         echo -e "${DIM}This was generated and shown to you during Server A setup (for TCP + Reality).${NC}"
         echo -e "${CYAN}${ARROW}${NC} Enter Seed: \c"
@@ -2447,8 +3037,8 @@ install_server_b() {
         print_success "Seed: ${CYAN}${SERVER_B_SEED}${NC}"
     fi
     
-    # Question 6/7/8: Server Name (only if using Reality)
-    if [ "$USE_REALITY" = true ]; then
+    # Question 6/7/8: Server Name (only if using Reality, direct topology only)
+    if [ "$TUNNEL_TOPOLOGY" != "middle" ] && [ "$USE_REALITY" = true ]; then
         if [ "$TRANSPORT_PROTOCOL" = "ws" ]; then
             QUESTION_NUM="7"
         elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2484,8 +3074,13 @@ install_server_b() {
     else
         QUESTION_NUM="3"
     fi
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Tunnel Port from Server A installation?"
-    echo -e "${DIM}This is the port you used for VLESS connection on Server A.${NC}"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question:${NC} What tunnel port should Server M connect to on this server?"
+        echo -e "${DIM}Server M (middle) will use this port for the M→B leg.${NC}"
+    else
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question ${QUESTION_NUM}:${NC} What is the Tunnel Port from Server A installation?"
+        echo -e "${DIM}This is the port you used for VLESS connection on Server A.${NC}"
+    fi
     # Set default tunnel port based on transport protocol
     if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
         DEFAULT_TUNNEL_PORT="2053"
@@ -2933,7 +3528,24 @@ EOF
     echo
     print_success "Tunnel is now active!"
     print_info "Traffic routing (port-preserving):"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server A"
+    if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server M"
+        print_warning "Next: install Server M, then Server A"
+        if [ "$USE_REALITY" = true ]; then
+            echo
+            print_warning "Save for Server M (M→B leg):"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Public Key:${NC} ${CYAN}${PUBLIC_KEY}${NC}"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Short ID:${NC} ${CYAN}${SHORT_ID}${NC}"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Server Name:${NC} ${CYAN}${SERVER_NAME}${NC}"
+            echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port:${NC} ${CYAN}${TUNNEL_PORT}${NC}"
+            if [ -n "$SERVER_B_SEED" ]; then
+                echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Seed:${NC} ${CYAN}${SERVER_B_SEED}${NC}"
+            fi
+        fi
+    else
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server A"
+    fi
     IFS=',' read -ra PORT_ARRAY <<< "$ASSIGNED_PORTS"
     for port in "${PORT_ARRAY[@]}"; do
         port=$(echo "$port" | xargs) # trim whitespace
@@ -2951,15 +3563,22 @@ show_usage() {
     echo -e "  ${CYAN}xray${NC}     - Xray tunnel (default)"
     echo -e "  ${CYAN}paqet${NC}    - Paqet tunnel"
     echo
+    echo -e "${WHITE}${BOLD}Topology:${NC}"
+    echo -e "  ${CYAN}direct${NC}   - A → B (default)"
+    echo -e "  ${CYAN}middle${NC}   - A → M → B (relay via Server M)"
+    echo
     echo -e "${WHITE}${BOLD}Server types (for Xray):${NC}"
     echo -e "  ${CYAN}a, server-a, tunnel${NC}    Install on Server A (Tunnel Server)"
     echo -e "  ${CYAN}b, server-b, dest${NC}     Install on Server B (Destination Server)"
+    echo -e "  ${CYAN}m, server-m${NC}             Install on Server M (Middle relay, A→M→B)"
     echo -e "  ${CYAN}auto${NC}                  Auto-detect server type (default)"
     echo
     echo -e "${WHITE}${BOLD}Examples:${NC}"
     echo -e "  ${DIM}bash install${NC}              # Interactive menu (select tunnel type)"
     echo -e "  ${DIM}bash install xray a${NC}       # Xray tunnel on Server A"
     echo -e "  ${DIM}bash install xray server-b${NC} # Xray tunnel on Server B"
+    echo -e "  ${DIM}bash install xray middle b${NC} # Server B in A→M→B topology"
+    echo -e "  ${DIM}bash install xray m${NC}       # Server M (middle relay)"
     echo -e "  ${DIM}bash install paqet${NC}        # Paqet tunnel installer"
     echo -e "  ${DIM}bash install a${NC}            # Xray tunnel on Server A (default)"
     echo
@@ -3013,7 +3632,7 @@ main() {
     if [ $# -gt 0 ] && [[ "$1" =~ ^(xray|paqet)$ ]]; then
         TUNNEL_TYPE="$1"
         shift # Remove tunnel type from arguments
-    elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|server-a|server-b|auto|tunnel|dest|destination)$ ]]; then
+    elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|m|server-a|server-b|server-m|auto|tunnel|dest|destination|middle)$ ]]; then
         # Show tunnel type menu
         show_tunnel_type_menu
         echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
@@ -3049,12 +3668,32 @@ main() {
     # Continue with Xray installation
     print_header
     
+    # Topology selection (interactive or from CLI)
+    if [ $# -gt 0 ] && [[ "$1" =~ ^(middle|via-middle|a-m-b)$ ]]; then
+        TUNNEL_TOPOLOGY="middle"
+        shift
+    elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|m|server-a|server-b|server-m|auto|tunnel|dest|destination|middle)$ ]]; then
+        show_topology_menu
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-2, default: 1]${NC}"
+        echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
+        read topo_choice
+        case "${topo_choice:-1}" in
+            2) TUNNEL_TOPOLOGY="middle" ;;
+            *) TUNNEL_TOPOLOGY="direct" ;;
+        esac
+    fi
+    export TUNNEL_TOPOLOGY
+    
     # Determine server type
     SERVER_TYPE=""
     if [ $# -eq 0 ]; then
         # No arguments, show menu
         show_server_menu
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
+        if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-4]${NC}"
+        else
+            echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
+        fi
         echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
         read choice
         
@@ -3066,7 +3705,19 @@ main() {
                 SERVER_TYPE="b"
                 ;;
             3)
-                SERVER_TYPE=$(detect_server_type)
+                if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+                    SERVER_TYPE="m"
+                else
+                    SERVER_TYPE=$(detect_server_type)
+                fi
+                ;;
+            4)
+                if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
+                    SERVER_TYPE=$(detect_server_type)
+                else
+                    print_error "Invalid choice"
+                    exit 1
+                fi
                 ;;
             *)
                 print_error "Invalid choice"
@@ -3080,6 +3731,10 @@ main() {
                 ;;
             "b"|"server-b"|"dest"|"destination")
                 SERVER_TYPE="b"
+                ;;
+            "m"|"server-m"|"middle")
+                SERVER_TYPE="m"
+                TUNNEL_TOPOLOGY="middle"
                 ;;
             "auto")
                 SERVER_TYPE=$(detect_server_type)
@@ -3114,6 +3769,12 @@ main() {
         install_server_a
     elif [ "$SERVER_TYPE" = "b" ]; then
         install_server_b
+    elif [ "$SERVER_TYPE" = "m" ]; then
+        if [ "$TUNNEL_TOPOLOGY" != "middle" ]; then
+            print_warning "Server M is for middle topology; enabling A→M→B mode"
+            TUNNEL_TOPOLOGY="middle"
+        fi
+        install_server_m
     else
         print_error "Could not determine server type"
         exit 1

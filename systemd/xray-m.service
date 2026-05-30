@@ -1,0 +1,26 @@
+[Unit]
+Description=Xray Service (Server M - Middle Relay)
+Documentation=https://github.com/XTLS/Xray-core
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/xray run -config /etc/xray/m.json
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1048576
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/xray /etc/xray
+
+LimitCORE=infinity
+LimitNOFILE=1048576
+LimitNPROC=1048576
+
+[Install]
+WantedBy=multi-user.target
