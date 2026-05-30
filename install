@@ -14,6 +14,9 @@ set -e
 # Debug mode - uncomment to enable debug output
 # set -x
 
+# Stable TERM (reduces escape-sequence noise on minimal/cloud shells)
+export TERM="${TERM:-xterm-256color}"
+
 # Modern Color Palette
 RED='\033[0;31m'
 GREEN='\033[0;32m'
