@@ -1,783 +1,83 @@
-# 🚀 تونل استیل چندگانه Xray
+# تونل Stealth Multiplex (Xray)
 
-<div align="center">
+نصب‌کنندهٔ تعاملی تونل **VLESS** با [Xray-core](https://github.com/XTLS/Xray-core): چند پورت روی **سرور A** (ورودی) و inbound متناظر روی **سرور B** (مقصد). در صورت نیاز، **سرور M** برای مسیر **A → M → B**.
 
-[![English](https://img.shields.io/badge/Language-English-blue.svg)](README.md)
-[![Persian](https://img.shields.io/badge/زبان-فارسی-green.svg)](README_FA.md)
-[![Xray Version](https://img.shields.io/badge/Xray-v26.2.2-success.svg)](https://github.com/XTLS/Xray-core/releases/tag/v26.2.2)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/letmefind/Easy-paqet?style=social)](https://github.com/letmefind/Easy-paqet)
+## شروع سریع
 
-**راه‌حل تونل استیل آماده تولید با عملکرد بالا و پروتکل‌های انتقال متعدد و بهینه‌سازی‌های پیشرفته**
-
-[ویژگی‌ها](#-ویژگی‌ها) • [شروع سریع](#-شروع-سریع) • [مستندات](#-مستندات) • [پشتیبانی](#-پشتیبانی)
-
-</div>
-
----
-
-## 📋 فهرست مطالب
-
-- [نمای کلی](#-نمای-کلی)
-- [ویژگی‌ها](#-ویژگی‌ها)
-- [شروع سریع](#-شروع-سریع)
-- [معماری](#-معماری)
-- [پروتکل‌های انتقال](#-پروتکل‌های-انتقال)
-- [نصب](#-نصب)
-- [پیکربندی](#-پیکربندی)
-- [بهینه‌سازی عملکرد](#-بهینه‌سازی-عملکرد)
-- [ابزارهای مدیریت](#-ابزارهای-مدیریت)
-- [عیب‌یابی](#-عیب‌یابی)
-- [مستندات](#-مستندات)
-- [مشارکت](#-مشارکت)
-- [مجوز](#-مجوز)
-
----
-
-## 🎯 نمای کلی
-
-**تونل استیل چندگانه Xray** یک راه‌حل جامع و آماده تولید برای تونل‌زنی است که ارائه می‌دهد:
-
-- 🔒 **حداکثر استیل** - دور زدن پیشرفته DPI با پروتکل Reality
-- ⚡ **عملکرد بالا** - بهینه شده برای سرعت و کارایی
-- 🌐 **پروتکل‌های انتقال متعدد** - پشتیبانی از XHTTP، TCP، WebSocket و GRPC
-- 🛡️ **امنیت سازمانی** - اثر انگشت TLS و مدیریت گواهی
-- 📊 **آماده تولید** - ابزارهای جامع نظارت و مدیریت
-
-ساخته شده بر پایه **Xray-core v26.2.2** با بهینه‌سازی‌های پیشرفته برای تعداد کاربران بالا و حداکثر throughput.
-
----
-
-## ✨ ویژگی‌ها
-
-### 🚀 پروتکل‌های انتقال
-
-| پروتکل | سرعت | استیل | پشتیبانی CDN | TLS | بهترین برای |
-|--------|------|-------|--------------|-----|-------------|
-| **XHTTP + Reality** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ | ✅ | حداکثر استیل و دور زدن DPI |
-| **TCP Raw** | ⭐⭐⭐⭐⭐ | ⭐⭐ | ❌ | ❌ | سریع‌ترین عملکرد |
-| **WebSocket** | ⭐⭐⭐⭐ | ⭐⭐⭐ | ✅ | ❌ | CDN و پروکسی‌های وب |
-| **GRPC** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ✅ | ❌ | عملکرد بالا و CDN |
-
-### 🔒 امنیت و استیل
-
-- ✅ **پروتکل Reality** - بدون نیاز به گواهی واقعی، perfect forward secrecy
-- ✅ **اثر انگشت TLS** - تقلید از مرورگر Chrome
-- ✅ **شناسه‌های کوتاه متعدد** - 20 شناسه منحصر به فرد برای تمایز کلاینت
-- ✅ **سایت‌های فریب** - وب‌سایت‌های قانونی‌نما برای استتار
-- ✅ **امنیت UUID** - شناسه‌های قوی و منحصر به فرد برای هر نصب
-
-### ⚡ بهینه‌سازی‌های عملکرد
-
-- ✅ **کنترل ازدحام BBR** - فعال به صورت پیش‌فرض برای حداکثر throughput
-- ✅ **بهینه‌سازی بافر TCP** - تنظیم شده برای پهنای باند بالا (بافرهای 128MB)
-- ✅ **بهینه‌سازی SplitHTTP** - تنظیمات کارآمد CPU/RAM برای تعداد کاربران بالا
-- ✅ **بهینه‌سازی حافظه** - کاهش مصرف حافظه در راه‌اندازی (v26.2.2)
-- ✅ **ردیابی اتصال** - بهینه شده برای 1M+ اتصال همزمان
-
-### 🎯 ویژگی‌های پیشرفته
-
-- ✅ **پشتیبانی چندپورت** - مدیریت پویای پورت‌ها
-- ✅ **مسیریابی حفظ پورت** - حفظ شماره پورت در تونل
-- ✅ **پشتیبانی چندگامه** - سرور C اختیاری برای مسیریابی گسترده (A→B→C)
-- ✅ **نصب تعاملی** - ویزارد راه‌اندازی کاربرپسند
-- ✅ **ابزارهای جامع** - ابزارهای پشتیبان‌گیری، نظارت و عیب‌یابی
-
----
-
-## 🚀 شروع سریع
-
-### پیش‌نیازها
-
-- سرور لینوکس (Ubuntu 20.04+، Debian 11+، CentOS 8+)
-- دسترسی root یا sudo
-- حداقل 512MB RAM
-- اتصال شبکه
-
-### نصب
+روی هر سرور (با root):
 
 ```bash
-# کلون کردن مخزن
-git clone https://github.com/letmefind/Easy-paqet.git
-cd Easy-paqet
+curl -fsSL https://raw.githubusercontent.com/letmefind/stealth-multiplex-tunnel-xray/main/server.sh -o server.sh
+chmod +x server.sh
+sudo bash server.sh
 ```
 
-#### گزینه 1: سرورهای با اتصال اینترنت مناسب (توصیه می‌شود)
+`server.sh` آخرین `install` را از گیت‌هاب می‌گیرد و اجرا می‌کند (از فایل خراب محلی جلوگیری می‌کند).
 
-اگر سرور شما دسترسی مستقیم به GitHub و سرعت اینترنت مناسب دارد:
-
-```bash
-# اجرای نصب‌کننده اصلی (خودش Xray را دانلود می‌کند)
-sudo bash install
-```
-
-**آنچه اتفاق می‌افتد:**
-- نصب‌کننده به صورت خودکار Xray را از GitHub دانلود می‌کند
-- Xray و تمام وابستگی‌ها را نصب می‌کند
-- تونل را بر اساس انتخاب‌های شما پیکربندی می‌کند
-
-#### گزینه 2: سرورهای با اینترنت محدود (چین/شبکه‌های کند)
-
-اگر سرور شما دسترسی محدود به اینترنت دارد یا نمی‌تواند مستقیماً به GitHub دسترسی داشته باشد:
-
-```bash
-# مرحله 1: ابتدا Xray را به صورت آفلاین نصب کنید
-sudo bash install_xray_offline.sh
-
-# مرحله 2: سپس نصب‌کننده اصلی را اجرا کنید
-sudo bash install
-```
-
-**آنچه اتفاق می‌افتد:**
-- `install_xray_offline.sh` Xray را با استفاده از چندین آینه دانلود می‌کند (GitHub، ghproxy، fastgit)
-- اگر همه آینه‌ها ناموفق باشند، دستورالعمل نصب دستی را ارائه می‌دهد
-- `install` سپس از Xray از پیش نصب شده برای پیکربندی تونل استفاده می‌کند
-
-**چرا دو مرحله؟**
-- `install_xray_offline.sh` نصب Xray را با آینه‌های پشتیبان مدیریت می‌کند
-- `install` پیکربندی تونل را انجام می‌دهد (نیازی به دانلود مجدد Xray ندارد)
-
-### گزینه‌های نصب
-
-```bash
-# حالت تعاملی (توصیه می‌شود)
-sudo bash install
-
-# تشخیص خودکار نوع سرور
-sudo bash install auto
-
-# نوع سرور خاص
-sudo bash install a    # سرور A (ورودی)
-sudo bash install b    # سرور B (میانی)
-sudo bash install c    # سرور C (مقصد نهایی)
-```
-
-### آنچه در طول نصب اتفاق می‌افتد
-
-1. **انتخاب نوع سرور** - انتخاب A، B یا C
-2. **پروتکل انتقال** - انتخاب XHTTP/TCP/WebSocket/GRPC
-3. **پیکربندی** - وارد کردن جزئیات اتصال
-4. **تولید کلید** - کلیدهای Reality به صورت خودکار تولید می‌شوند
-5. **تنظیم سرویس** - سرویس‌های systemd پیکربندی می‌شوند
-6. **بهینه‌سازی** - BBR و بافرهای TCP بهینه می‌شوند
-7. **فایروال** - قوانین به صورت خودکار پیکربندی می‌شوند
-
----
-
-## 🏗️ معماری
-
-### معماری سیستم
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      دستگاه‌های کلاینت                        │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    سرور A (ورودی)                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │ پورت 80  │  │ پورت 443 │  │ پورت 8080│  │ پورت 8443│     │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
-│       │             │             │             │          │
-│       └─────────────┴─────────────┴─────────────┘          │
-│                          │                                  │
-│                    [تونل VLESS]                            │
-│              (XHTTP/TCP/WS/GRPC)                          │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│              سرور B (میانی)                                  │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │         پورت تونل (دریافت از A)                       │   │
-│  └──────────────────────┬───────────────────────────────┘   │
-│                         │                                     │
-│              ┌──────────┴──────────┐                          │
-│              │                     │                          │
-│         ┌────▼────┐          ┌────▼────┐                    │
-│         │ ارسال    │          │ سرویس‌های│                    │
-│         │  به C    │          │  محلی   │                    │
-│         └──────────┘          └─────────┘                    │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼ (اختیاری)
-┌─────────────────────────────────────────────────────────────┐
-│              سرور C (مقصد نهایی)                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │         پورت تونل (دریافت از B)                       │   │
-│  └──────────────────────┬───────────────────────────────┘   │
-│                         │                                     │
-│                   ┌─────▼─────┐                              │
-│                   │  سرویس‌های │                              │
-│                   │   محلی    │                              │
-│                   └───────────┘                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### حالت‌های مسیریابی
-
-#### مسیریابی مستقیم (A → B)
-```
-کلاینت → سرور A → سرور B → سرویس‌های محلی
-```
-- **مورد استفاده**: راه‌اندازی ساده دو سرور
-- **مزیت**: تاخیر کمتر، پیکربندی ساده‌تر
-
-#### مسیریابی چندگامه (A → B → C)
-```
-کلاینت → سرور A → سرور B → سرور C → سرویس‌های محلی
-```
-- **مورد استفاده**: مسیریابی گسترده، لایه امنیتی اضافی
-- **مزیت**: امنیت بیشتر، توزیع جغرافیایی
-
----
-
-## 🌐 پروتکل‌های انتقال
-
-### 1. XHTTP (SplitHTTP) با Reality ⭐ توصیه می‌شود
-
-**بهترین برای**: حداکثر استیل و دور زدن DPI
-
-**ویژگی‌ها:**
-- ✅ بدون نیاز به گواهی واقعی
-- ✅ Perfect forward secrecy
-- ✅ اثر انگشت TLS Chrome
-- ✅ شناسه‌های کوتاه متعدد (20 منحصر به فرد)
-- ✅ مقصد فریب (Microsoft)
-
-**پیکربندی:**
-```json
-{
-  "network": "splithttp",
-  "security": "reality",
-  "realitySettings": {
-    "serverName": "www.accounts.accesscontrol.windows.net",
-    "publicKey": "generated-x25519-public-key",
-    "shortIds": ["id1", "id2", "..."],
-    "fingerprint": "chrome"
-  },
-  "splithttpSettings": {
-    "path": "/assets",
-    "mode": "Paket-up",
-    "scMaxEachPostBytes": 2097152,
-    "scMaxConcurrentPosts": 4,
-    "scMinPostsIntervalMs": 50,
-    "xPaddingBytes": 0,
-    "keepaliveperiod": 120
-  }
-}
-```
-
-**تنظیمات عملکرد:**
-- `scMaxEachPostBytes`: 2MB (کاهش overhead)
-- `scMaxConcurrentPosts`: 4 (کاهش استفاده CPU)
-- `scMinPostsIntervalMs`: 50ms (کاهش استفاده CPU)
-- `xPaddingBytes`: 0 (کاهش مصرف RAM)
-- `keepaliveperiod`: 120s (کاهش overhead اتصال)
-- `mode`: Paket-up (بهینه برای SplitHTTP)
-
-### 2. TCP Raw
-
-**بهترین برای**: حداکثر سرعت و سادگی
-
-**ویژگی‌ها:**
-- ✅ سریع‌ترین پروتکل
-- ✅ کمترین overhead
-- ✅ بدون overhead رمزنگاری
-- ✅ پیکربندی ساده
-
-**پیکربندی:**
-```json
-{
-  "network": "tcp"
-}
-```
-
-**موارد استفاده:**
-- شبکه‌های داخلی
-- نیازمندی‌های سرعت بالا
-- برنامه‌های کم تاخیر
-
-### 3. WebSocket
-
-**بهترین برای**: یکپارچه‌سازی CDN و پروکسی‌های وب
-
-**ویژگی‌ها:**
-- ✅ سازگار با CDN
-- ✅ دور زدن فایروال وب
-- ✅ پشتیبانی پروکسی HTTP
-- ✅ مسیر قابل تنظیم
-
-**پیکربندی:**
-```json
-{
-  "network": "ws",
-  "wsSettings": {
-    "path": "/assets"
-  }
-}
-```
-
-**موارد استفاده:**
-- یکپارچه‌سازی Cloudflare/CDN
-- پروکسی‌های مبتنی بر وب
-- محیط‌های فقط HTTP
-
-### 4. GRPC
-
-**بهترین برای**: عملکرد بالا و CDN
-
-**ویژگی‌ها:**
-- ✅ سازگار با CDN
-- ✅ چندگانه HTTP/2
-- ✅ عملکرد بالا (تا 20% بهبود با multiMode)
-- ✅ نام سرویس قابل تنظیم
-- ✅ بهینه شده با تنظیمات عملکردی
-
-**پیکربندی (سرور A - خروجی):**
-```json
-{
-  "network": "grpc",
-  "grpcSettings": {
-    "serviceName": "/xray.XrayService",
-    "multiMode": true,
-    "idle_timeout": 60,
-    "health_check_timeout": 20,
-    "permit_without_stream": false,
-    "initial_windows_size": 65535
-  }
-}
-```
-
-**تنظیمات عملکرد:**
-- `multiMode`: فعال‌سازی حالت چندگانه برای بهبود عملکرد تا 20%
-- `idle_timeout`: 60 ثانیه - فعال‌سازی بررسی سلامت در حالت بیکار
-- `health_check_timeout`: 20 ثانیه - تایم‌اوت برای بررسی سلامت
-- `initial_windows_size`: 65535 - اندازه پنجره بهینه برای استریم‌های HTTP/2
-
-**موارد استفاده:**
-- نیازمندی‌های عملکرد بالا
-- یکپارچه‌سازی CDN
-- برنامه‌های مدرن
-- زمانی که حداکثر throughput مورد نیاز است
-
----
-
-## 📦 نصب
-
-### نصب گام به گام
-
-#### 1. نصب سرور B (میانی)
+یا:
 
 ```bash
 sudo bash install
-# انتخاب: سرور B
-# انتخاب پروتکل انتقال
-# وارد کردن جزئیات پیکربندی
 ```
 
-**اطلاعات مورد نیاز:**
-- UUID (از سرور A)
-- کلید خصوصی (از سرور A)
-- پروتکل انتقال (باید با سرور A مطابقت داشته باشد)
-- مسیر انتقال (اگر WebSocket/GRPC)
-- شناسه‌های کوتاه (اگر XHTTP)
-- نام سرور (اگر XHTTP)
-- پورت تونل
-- پورت‌های ارسال
-
-#### 2. نصب سرور A (ورودی)
+نمونهٔ خط فرمان:
 
 ```bash
-sudo bash install
-# انتخاب: سرور A
-# انتخاب پروتکل انتقال
-# وارد کردن جزئیات سرور B
+sudo bash install xray b
+sudo bash install xray middle b
+sudo bash install xray m
+sudo bash install xray a
 ```
 
-**اطلاعات مورد نیاز:**
-- آدرس IP سرور B
-- پورت تونل
-- پروتکل انتقال
-- مسیر انتقال (اگر WebSocket/GRPC)
-- نام سرور (اگر XHTTP)
+## توپولوژی
 
-**اطلاعات تولید شده (ذخیره برای سرور B):**
-- UUID
-- کلید عمومی (برای سرور A)
-- کلید خصوصی (برای سرور B)
-- شناسه‌های کوتاه (20 مختلف)
-- نام سرور
+| حالت | مسیر | ترتیب نصب |
+|------|------|-----------|
+| **مستقیم** (پیش‌فرض) | A → B | اول B، بعد A |
+| **رله میانی** | A → M → B | B → M → A |
 
-#### 3. سرور C (اختیاری - مقصد نهایی)
+پروتکل و transport روی همهٔ hopها یکسان باشد.
+
+## پروتکل‌های transport
+
+| # | پروتکل |
+|---|--------|
+| 1 | XHTTP + Reality |
+| 2 | XHTTP |
+| 3 | TCP خام |
+| 4 | TCP + Reality |
+| 5 | WebSocket |
+| 6 | gRPC |
+| 7 | KCP (mKCP) — پیش‌فرض: MTU 1350، TTI 20ms، uplink/downlink 500، congestion روشن، بافر 32MB، پورت تونل 2053 |
+
+## مسیرها و سرویس‌ها
+
+- پیکربندی: `/etc/xray/` (`a.json`, `b.json`, `m.json`)
+- سرویس‌ها: `xray-a`, `xray-b`, `xray-m`
+- لاگ: `/var/log/xray/`
+
+## اسکریپت‌های کمکی
 
 ```bash
-sudo bash install
-# انتخاب: سرور C
-# وارد کردن جزئیات اتصال B->C
-```
-
----
-
-## ⚙️ پیکربندی
-
-### تنظیمات بهینه SplitHTTP
-
-بهینه شده برای تعداد کاربران بالا و کارایی CPU/RAM:
-
-```json
-{
-  "splithttpSettings": {
-    "path": "/assets",
-    "mode": "Paket-up",
-    "scMaxEachPostBytes": 2097152,      // 2MB - کاهش overhead
-    "scMaxConcurrentPosts": 4,          // کاهش استفاده CPU
-    "scMinPostsIntervalMs": 50,         // کاهش استفاده CPU
-    "noSSEHeader": false,               // قانونی به نظر می‌رسد
-    "noGRPCHeader": true,                // کاهش تشخیص
-    "xPaddingBytes": 0,                 // کاهش مصرف RAM
-    "keepaliveperiod": 120              // کاهش overhead اتصال
-  }
-}
-```
-
-### بهینه‌سازی BBR و TCP
-
-به صورت خودکار در طول نصب پیکربندی می‌شود:
-
-```bash
-# اعمال دستی
-sudo bash scripts/apply_bbr_tcp_optimization.sh
-```
-
-**تنظیمات اعمال شده:**
-- کنترل ازدحام BBR
-- بافرهای TCP: حداکثر 128MB (خواندن/نوشتن)
-- مقیاس‌بندی پنجره TCP
-- TCP Fast Open
-- ردیابی اتصال: حداکثر 1M
-- گزینه‌های سوکت بهینه شده
-- تنظیمات MTU: پیش‌فرض 1350 برای packet tunnel (جلوگیری از fragmentation)
-
-**مستندات کامل:** [BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)
-
----
-
-## ⚡ بهینه‌سازی عملکرد
-
-### بهبودهای Xray v26.2.2
-
-**بهبودهای عملکرد:**
-- ✅ کاهش مصرف حافظه در راه‌اندازی (#5581)
-- ✅ بهینه‌سازی Geodat - کاهش peak memory
-- ✅ بهینه‌سازی فیلتر replay VMess (#5562)
-- ✅ بهبودهای TUN inbound - رفع مشکل توقف اتصال (#5600)
-- ✅ بهبودهای انتقال Hysteria (#5603)
-- ✅ بهبودهای انتقال XHTTP - گزینه‌های دور زدن CDN (#5414)
-- ✅ بهبودهای تطبیق دامنه MPH - استفاده از cache (#5505)
-
-**ویژگی‌های جدید:**
-- 🆕 Finalmask - XICMP، XDNS، header-*، mkcp-*
-- 🆕 پشتیبانی iOS - بهبود TUN inbound (#5612)
-- 🆕 بهبودهای Darwin - پشتیبانی بهتر macOS (#5598)
-
-**مستندات کامل:** [XRAY_V26.2.2_FEATURES.md](XRAY_V26.2.2_FEATURES.md)
-
-### تنظیمات توصیه شده برای تعداد کاربران بالا
-
-1. **حالت SplitHTTP**: `Paket-up` (بهینه برای SplitHTTP)
-2. **xPaddingBytes**: `0` (کاهش مصرف RAM)
-3. **scMaxConcurrentPosts**: `4` (کاهش استفاده CPU)
-4. **scMinPostsIntervalMs**: `50` (کاهش استفاده CPU)
-5. **BBR**: فعال به صورت پیش‌فرض
-6. **بافرهای TCP**: بهینه شده برای پهنای باند بالا
-
----
-
-## 🛠️ ابزارهای مدیریت
-
-### مدیریت پورت
-
-```bash
-# افزودن پورت جدید
-sudo bash scripts/manage_ports.sh add 8443
-
-# حذف پورت
-sudo bash scripts/manage_ports.sh remove 8080
-
-# فهرست پورت‌های پیکربندی شده
-sudo bash scripts/manage_ports.sh list
-```
-
-### پشتیبان‌گیری پیکربندی
-
-```bash
-# ایجاد پشتیبان
-sudo bash scripts/backup_config.sh create
-
-# فهرست پشتیبان‌ها
-sudo bash scripts/backup_config.sh list
-
-# بازیابی از پشتیبان
-sudo bash scripts/backup_config.sh restore backup_20231201_120000
-
-# پاک کردن پشتیبان‌های قدیمی
-sudo bash scripts/backup_config.sh clean
-```
-
-### نظارت وضعیت
-
-```bash
-# گزارش وضعیت تفصیلی
-sudo bash scripts/status.sh status
-
-# بررسی سریع وضعیت
 sudo bash scripts/status.sh quick
-
-# بررسی اجزای خاص
-sudo bash scripts/status.sh services
-sudo bash scripts/status.sh ports
-sudo bash scripts/status.sh configs
-sudo bash scripts/status.sh logs
-sudo bash scripts/status.sh resources
-sudo bash scripts/status.sh connectivity
-```
-
-### ابزارهای عیب‌یابی
-
-```bash
-# عیب‌یابی جامع
 sudo bash scripts/troubleshoot.sh
-
-# رفع سریع مشکلات رایج
-sudo bash scripts/quick_fix.sh
-
-# حل تعارض Xray
-sudo bash scripts/resolve_xray_conflict.sh
-
-# اعتبارسنجی و رفع پیکربندی
-sudo bash scripts/validate_and_fix_config.sh
-
-# رفع کلیدهای اتصال B->C
-sudo bash scripts/fix_b_to_c_keys.sh
-```
-
----
-
-## 🔧 عیب‌یابی
-
-### مشکلات رایج
-
-#### 1. سرویس راه‌اندازی نمی‌شود
-
-```bash
-# بررسی وضعیت سرویس
-systemctl status xray-a
-systemctl status xray-b
-
-# بررسی لاگ‌ها
-journalctl -u xray-a -f
-journalctl -u xray-b -f
-
-# تأیید پیکربندی
-xray -test -config /etc/xray/a.json
-xray -test -config /etc/xray/b.json
-```
-
-#### 2. مشکلات اتصال
-
-**بررسی تطابق UUID:**
-```bash
-# سرور A
-jq '.outbounds[0].settings.vnext[0].users[0].id' /etc/xray/a.json
-
-# سرور B
-jq '.inbounds[0].settings.clients[0].id' /etc/xray/b.json
-```
-
-**بررسی تطابق پروتکل انتقال:**
-```bash
-# سرور A
-jq '.outbounds[0].streamSettings.network' /etc/xray/a.json
-
-# سرور B
-jq '.inbounds[0].streamSettings.network' /etc/xray/b.json
-```
-
-#### 3. تعارض پورت
-
-```bash
-# بررسی پورت‌های در حال گوش دادن
-ss -tlnp | grep -E ':(80|443|8080|8443|8081)\s'
-
-# بررسی تعارض سرویس
-systemctl list-units | grep -E '(xray|nginx|apache)'
-```
-
-#### 4. مشکلات فایروال
-
-```bash
-# بررسی وضعیت UFW
-sudo ufw status
-
-# بررسی قوانین iptables
-sudo iptables -L -n -v
-
-# اجازه دادن به پورت‌های مورد نیاز
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw allow 8080/tcp
-sudo ufw allow 8443/tcp
-sudo ufw allow 8081/tcp
-```
-
-#### 5. مشکلات عملکرد
-
-```bash
-# بررسی وضعیت BBR
-sysctl net.ipv4.tcp_congestion_control
-
-# بررسی بافرهای TCP
-sysctl net.core.rmem_max
-sysctl net.core.wmem_max
-
-# اعمال بهینه‌سازی‌ها به صورت دستی
+sudo bash scripts/manage_ports.sh list
 sudo bash scripts/apply_bbr_tcp_optimization.sh
 ```
 
-### تحلیل لاگ
+## عیب‌یابی
 
-```bash
-# لاگ‌های دسترسی Xray
-tail -f /var/log/xray/access.log
+1. نصب مجدد با `server.sh`
+2. `systemctl status xray-a` (یا b / m)
+3. `journalctl -u xray-a -n 50`
+4. `scripts/troubleshoot.sh`
 
-# لاگ‌های خطای Xray
-tail -f /var/log/xray/error.log
+اگر خروجی ترمینال کاراکترهای عجیب (`\E[?12` و مشابه) داشت، فایل محلی `install` خراب است — از `server.sh` استفاده کنید.
 
-# لاگ‌های سیستم
-journalctl -u xray-a -f
-journalctl -u xray-b -f
+## مستندات انگلیسی
 
-# پیام‌های سیستم
-dmesg | grep -i xray
-```
+[README.md](README.md)
 
----
+## مجوز
 
-## 📚 مستندات
-
-### مستندات اصلی
-
-- **[README.md](README.md)** - این فایل (انگلیسی)
-- **[README_FA.md](README_FA.md)** - مستندات فارسی
-- **[XRAY_V26.2.2_FEATURES.md](XRAY_V26.2.2_FEATURES.md)** - ویژگی‌ها و بهبودهای v26.2.2
-- **[BBR_TCP_OPTIMIZATION.md](BBR_TCP_OPTIMIZATION.md)** - راهنمای بهینه‌سازی BBR و TCP
-- **[CONFIGURATION_EXAMPLES.md](CONFIGURATION_EXAMPLES.md)** - نمونه‌های پیکربندی
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - نمای کلی تفصیلی پروژه
-
-### منابع خارجی
-
-- [مستندات Xray-core](https://xtls.github.io/)
-- [GitHub Xray-core](https://github.com/XTLS/Xray-core)
-- [انتشارات Xray-core](https://github.com/XTLS/Xray-core/releases)
-
----
-
-## 🧪 تست
-
-### بررسی‌های سلامت
-
-```bash
-# بررسی پورت‌های در حال گوش دادن
-ss -tlnp | grep -E ':(80|443|8080|8443|8081)\s'
-
-# بررسی وضعیت سرویس
-systemctl is-active xray-a xray-b
-
-# تست اتصال
-curl -I http://server-a-ip:80
-curl -I http://server-a-ip:443
-```
-
-### تست End-to-End
-
-1. **شروع سرویس تست روی سرور B:**
-   ```bash
-   sudo nc -l 127.0.0.1 8080
-   ```
-
-2. **اتصال از کلاینت به سرور A:**
-   ```bash
-   nc server-a-ip 8080
-   ```
-
-3. **تایپ پیام‌ها** - باید در جلسه nc سرور B ظاهر شوند.
-
----
-
-## 🤝 مشارکت
-
-مشارکت‌ها خوشامد است! لطفاً این مراحل را دنبال کنید:
-
-1. Fork کردن مخزن
-2. ایجاد یک شاخه ویژگی (`git checkout -b feature/amazing-feature`)
-3. Commit تغییرات (`git commit -m 'Add amazing feature'`)
-4. Push به شاخه (`git push origin feature/amazing-feature`)
-5. باز کردن Pull Request
-
-### دستورالعمل‌های مشارکت
-
-- دنبال کردن سبک کد موجود
-- افزودن کامنت برای منطق پیچیده
-- به‌روزرسانی مستندات برای ویژگی‌های جدید
-- تست کامل تغییرات
-- دنبال کردن semantic versioning
-
----
-
-## 📄 مجوز
-
-این پروژه تحت مجوز MIT مجوز دارد - برای جزئیات فایل [LICENSE](LICENSE) را ببینید.
-
----
-
-## ⚠️ سلب مسئولیت
-
-این پروژه فقط برای **موارد استفاده آموزشی و مشروع** ارائه شده است. کاربران مسئول:
-
-- رعایت قوانین محلی و مقررات
-- مجوز مناسب برای استفاده از شبکه
-- استفاده اخلاقی از نرم‌افزار
-
-نویسندگان و مشارکت‌کنندگان مسئول سوء استفاده از این نرم‌افزار نیستند.
-
----
-
-## 📞 پشتیبانی
-
-### دریافت کمک
-
-- **GitHub Issues**: [باز کردن issue](https://github.com/letmefind/Easy-paqet/issues)
-- **مستندات**: بررسی بخش [مستندات](#-مستندات)
-- **عیب‌یابی**: استفاده از [ابزارهای عیب‌یابی](#-عیب‌یابی)
-
-### گزارش مشکلات
-
-هنگام گزارش مشکلات، لطفاً شامل کنید:
-
-- نسخه Xray (`xray version`)
-- سیستم عامل و نسخه
-- روش نصب
-- پیام‌های خطا و لاگ‌ها
-- مراحل بازتولید
-
----
-
-<div align="center">
-
-**ساخته شده با ❤️ برای آزادی ارتباطات**
-
-[⬆ بازگشت به بالا](#-تونل-استیل-چندگانه-xray)
-
-</div>
+MIT — [LICENSE](LICENSE)

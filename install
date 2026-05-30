@@ -60,14 +60,10 @@ show_tunnel_type_menu() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Choose your tunnel type:${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}Xray Tunnel${NC} ${DIM}- Stealth Multiplex Tunnel with Xray-core${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Supports: XHTTP, TCP, WebSocket, GRPC${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Features: Reality protocol, Multi-port, Multi-hop${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Transports: XHTTP, TCP, WebSocket, gRPC, KCP (mKCP)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Features: Reality, multi-port, direct A->B or relay A->M->B${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Paqet Tunnel${NC} ${DIM}- High-performance packet tunnel${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Supports: KCP protocol, SOCKS5, Port Forwarding${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Features: Optimized for high traffic, MTU discovery${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Check Xray Version${NC} ${DIM}- Check specific Xray version${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Check Xray Version${NC} ${DIM}- Compare a version with installed Xray${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Check if a specific version is newer than current${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     print_section_end
@@ -819,8 +815,12 @@ show_server_menu() {
 detect_server_type() {
     print_info "Auto-detecting server type..." >&2
     
-    if command -v nginx >/dev/null 2>&1; then
+    if [ -f /etc/xray/m.json ]; then
+        echo "m"
+    elif [ -f /etc/xray/b.json ]; then
         echo "b"
+    elif [ -f /etc/xray/a.json ]; then
+        echo "a"
     else
         echo "a"
     fi
@@ -3564,7 +3564,6 @@ show_usage() {
     echo
     echo -e "${WHITE}${BOLD}Tunnel Types:${NC}"
     echo -e "  ${CYAN}xray${NC}     - Xray tunnel (default)"
-    echo -e "  ${CYAN}paqet${NC}    - Paqet tunnel"
     echo
     echo -e "${WHITE}${BOLD}Topology:${NC}"
     echo -e "  ${CYAN}direct${NC}   - A → B (default)"
@@ -3582,38 +3581,7 @@ show_usage() {
     echo -e "  ${DIM}bash install xray server-b${NC} # Xray tunnel on Server B"
     echo -e "  ${DIM}bash install xray middle b${NC} # Server B in A→M→B topology"
     echo -e "  ${DIM}bash install xray m${NC}       # Server M (middle relay)"
-    echo -e "  ${DIM}bash install paqet${NC}        # Paqet tunnel installer"
     echo -e "  ${DIM}bash install a${NC}            # Xray tunnel on Server A (default)"
-    echo
-    echo -e "${WHITE}${BOLD}Manual installation:${NC}"
-    echo -e "  ${DIM}bash install_a.sh${NC}    # For Server A only (Xray)"
-    echo -e "  ${DIM}bash install_b.sh${NC}    # For Server B only (Xray)"
-}
-
-# Function to run Paqet tunnel installer
-run_paqet_installer() {
-    local paqet_script=""
-    
-    # Check if paqet.sh exists locally
-    if [ -f "$(dirname "$0")/paqet.sh" ]; then
-        paqet_script="$(dirname "$0")/paqet.sh"
-    elif [ -f "./paqet.sh" ]; then
-        paqet_script="./paqet.sh"
-    else
-        # Download from GitHub
-        print_info "Downloading Paqet installer from GitHub..."
-        paqet_script="/tmp/paqet.sh"
-        if curl -fsSL https://raw.githubusercontent.com/letmefind/stealth-multiplex-tunnel-xray/main/paqet.sh -o "$paqet_script" 2>/dev/null; then
-            chmod +x "$paqet_script"
-        else
-            print_error "Failed to download Paqet installer"
-            exit 1
-        fi
-    fi
-    
-    print_success "Starting Paqet tunnel installer..."
-    echo ""
-    exec bash "$paqet_script" "$@"
 }
 
 # Main function
@@ -3632,24 +3600,21 @@ main() {
     
     # Tunnel type selection (only if no tunnel type specified)
     TUNNEL_TYPE=""
-    if [ $# -gt 0 ] && [[ "$1" =~ ^(xray|paqet)$ ]]; then
-        TUNNEL_TYPE="$1"
+    if [ $# -gt 0 ] && [[ "$1" == "xray" ]]; then
+        TUNNEL_TYPE="xray"
         shift # Remove tunnel type from arguments
     elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|m|server-a|server-b|server-m|auto|tunnel|dest|destination|middle)$ ]]; then
         # Show tunnel type menu
         show_tunnel_type_menu
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-2]${NC}"
         echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
         read tunnel_choice
         
         case "$tunnel_choice" in
-            1)
+            1|"")
                 TUNNEL_TYPE="xray"
                 ;;
             2)
-                TUNNEL_TYPE="paqet"
-                ;;
-            3)
                 TUNNEL_TYPE="check-version"
                 ;;
             *)
@@ -3660,12 +3625,6 @@ main() {
     else
         # Default to Xray if server type is specified directly
         TUNNEL_TYPE="xray"
-    fi
-    
-    # If Paqet is selected, run Paqet installer
-    if [ "$TUNNEL_TYPE" = "paqet" ]; then
-        run_paqet_installer "$@"
-        exit 0
     fi
     
     # Continue with Xray installation

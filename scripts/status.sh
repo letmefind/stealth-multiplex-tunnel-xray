@@ -14,7 +14,6 @@ NC='\033[0m' # No Color
 
 # Configuration
 XRAY_CONF_DIR="/etc/xray"
-NGINX_CONF_DIR="/etc/nginx/conf.d"
 
 # Logging functions
 log_info() {
@@ -89,20 +88,15 @@ check_listening_ports() {
         fi
     fi
     
-    # Check Nginx ports
-    if [[ -d "$NGINX_CONF_DIR" ]]; then
-        local nginx_ports=$(grep -h "listen" "$NGINX_CONF_DIR"/*.conf 2>/dev/null | grep -o '[0-9]\+' | sort -u)
-        
-        if [[ -n "$nginx_ports" ]]; then
-            echo "$nginx_ports" | while read -r port; do
-                if [[ -n "$port" ]]; then
-                    if ss -tlnp | grep -q ":$port "; then
-                        log_success "Nginx port $port: Listening"
-                    else
-                        log_error "Nginx port $port: Not listening"
-                    fi
-                fi
-            done
+    # Check Xray-M port (middle relay)
+    if [[ -f "$XRAY_CONF_DIR/m.json" ]]; then
+        local m_port=$(jq -r '.inbounds[0].port // empty' "$XRAY_CONF_DIR/m.json" 2>/dev/null)
+        if [[ -n "$m_port" ]]; then
+            if ss -tlnp 2>/dev/null | grep -q ":$m_port " || ss -ulnp 2>/dev/null | grep -q ":$m_port "; then
+                log_success "Xray-M port $m_port: Listening"
+            else
+                log_error "Xray-M port $m_port: Not listening"
+            fi
         fi
     fi
 }
@@ -131,16 +125,13 @@ check_config_files() {
     else
         log_warning "Xray-B config: Not found"
     fi
-    
-    # Check Nginx configuration
-    if command -v nginx &> /dev/null; then
-        if nginx -t 2>/dev/null; then
-            log_success "Nginx config: Valid"
+
+    if [[ -f "$XRAY_CONF_DIR/m.json" ]]; then
+        if jq empty "$XRAY_CONF_DIR/m.json" 2>/dev/null; then
+            log_success "Xray-M config: Valid JSON"
         else
-            log_error "Nginx config: Invalid"
+            log_error "Xray-M config: Invalid JSON"
         fi
-    else
-        log_warning "Nginx: Not installed"
     fi
 }
 
@@ -168,13 +159,12 @@ check_logs() {
         fi
     fi
     
-    # Check Nginx logs
-    if systemctl is-active --quiet nginx; then
-        local error_count=$(journalctl -u nginx --since "1 hour ago" --no-pager | grep -c "error\|Error\|ERROR" || echo "0")
+    if systemctl is-active --quiet xray-m 2>/dev/null; then
+        local error_count=$(journalctl -u xray-m --since "1 hour ago" --no-pager | grep -c "error\|Error\|ERROR" || echo "0")
         if [[ "$error_count" -eq 0 ]]; then
-            log_success "Nginx logs: No errors in last hour"
+            log_success "Xray-M logs: No errors in last hour"
         else
-            log_warning "Nginx logs: $error_count errors in last hour"
+            log_warning "Xray-M logs: $error_count errors in last hour"
         fi
     fi
 }
@@ -209,29 +199,16 @@ check_system_resources() {
     fi
 }
 
-# Test connectivity
+# Test connectivity (basic: tunnel port reachability from localhost)
 test_connectivity() {
     log_info "Testing connectivity..."
-    
-    # Get server configuration
     if [[ -f "$XRAY_CONF_DIR/b.json" ]]; then
-        local server_name=$(jq -r '.inbounds[] | select(.protocol == "vless" or .protocol == "trojan") | .streamSettings.splithttpSettings.host' "$XRAY_CONF_DIR/b.json" 2>/dev/null)
-        local stealth_path=$(jq -r '.inbounds[] | select(.protocol == "vless" or .protocol == "trojan") | .streamSettings.splithttpSettings.path' "$XRAY_CONF_DIR/b.json" 2>/dev/null)
-        local tls_port=$(grep -h "listen" "$NGINX_CONF_DIR"/*.conf 2>/dev/null | grep -o '[0-9]\+' | head -1)
-        
-        if [[ -n "$server_name" && -n "$tls_port" ]]; then
-            # Test decoy site
-            if curl -s -I "https://$server_name:$tls_port/" | grep -q "200 OK"; then
-                log_success "Decoy site: Accessible"
+        local xray_port=$(jq -r '.inbounds[] | select(.protocol == "vless") | .port' "$XRAY_CONF_DIR/b.json" 2>/dev/null | head -1)
+        if [[ -n "$xray_port" && "$xray_port" != "null" ]]; then
+            if ss -tlnp 2>/dev/null | grep -q ":$xray_port " || ss -ulnp 2>/dev/null | grep -q ":$xray_port "; then
+                log_success "Xray-B inbound port $xray_port is bound"
             else
-                log_warning "Decoy site: Not accessible"
-            fi
-            
-            # Test stealth path (should not expose obvious tunnel)
-            if curl -s -I "https://$server_name:$tls_port$stealth_path" | grep -q "502\|503\|504"; then
-                log_success "Stealth path: Responding (tunnel active)"
-            else
-                log_warning "Stealth path: Unexpected response"
+                log_warning "Xray-B inbound port $xray_port is not listening"
             fi
         fi
     fi
@@ -245,9 +222,9 @@ show_detailed_status() {
     
     # Service status
     log_info "Service Status:"
-    check_service_status "xray-a"
-    check_service_status "xray-b"
-    check_service_status "nginx"
+    [[ -f "$XRAY_CONF_DIR/a.json" ]] && check_service_status "xray-a"
+    [[ -f "$XRAY_CONF_DIR/b.json" ]] && check_service_status "xray-b"
+    [[ -f "$XRAY_CONF_DIR/m.json" ]] && check_service_status "xray-m"
     echo
     
     # Listening ports
@@ -281,16 +258,16 @@ show_quick_status() {
     
     # Service status only
     local all_services_ok=true
-    
-    if ! check_service_status "xray-a"; then
+
+    if [[ -f "$XRAY_CONF_DIR/a.json" ]] && ! check_service_status "xray-a"; then
         all_services_ok=false
     fi
-    
-    if ! check_service_status "xray-b"; then
+
+    if [[ -f "$XRAY_CONF_DIR/b.json" ]] && ! check_service_status "xray-b"; then
         all_services_ok=false
     fi
-    
-    if ! check_service_status "nginx"; then
+
+    if [[ -f "$XRAY_CONF_DIR/m.json" ]] && ! check_service_status "xray-m"; then
         all_services_ok=false
     fi
     
@@ -342,9 +319,9 @@ main() {
             ;;
         "services")
             check_root
-            check_service_status "xray-a"
-            check_service_status "xray-b"
-            check_service_status "nginx"
+            [[ -f "$XRAY_CONF_DIR/a.json" ]] && check_service_status "xray-a"
+            [[ -f "$XRAY_CONF_DIR/b.json" ]] && check_service_status "xray-b"
+            [[ -f "$XRAY_CONF_DIR/m.json" ]] && check_service_status "xray-m"
             ;;
         "ports")
             check_root
