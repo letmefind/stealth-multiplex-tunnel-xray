@@ -16,6 +16,8 @@ sudo bash server.sh
 
 The first menu can also start [Easy-paqet](https://github.com/letmefind/Easy-paqet) (choice **2**, or `sudo bash install paqet`). That downloads `paqet.sh` from Easy-paqet and runs it. Paqet stays in its own repo.
 
+Choice **3** (`sudo bash install rtt`) installs [ReverseTlsTunnel](https://github.com/radkesvat/ReverseTlsTunnel) V7.1. Iran listens on one port. Kharej dials Iran and forwards to `127.0.0.1`. Both sides share the SNI and password. The service restarts on failure, sets `--connection-age:4800`, and does not disable the firewall.
+
 Or clone and run:
 
 ```bash

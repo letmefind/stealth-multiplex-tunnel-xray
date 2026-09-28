@@ -16,6 +16,8 @@ sudo bash server.sh
 
 منوی اول می‌تواند [Easy-paqet](https://github.com/letmefind/Easy-paqet) را هم شروع کند (گزینه **2** یا `sudo bash install paqet`). اسکریپت `paqet.sh` از همان مخزن دانلود و اجرا می‌شود.
 
+گزینه **3** (`sudo bash install rtt`) تونل معکوس [ReverseTlsTunnel](https://github.com/radkesvat/ReverseTlsTunnel) نسخه V7.1 را نصب می‌کند. ایران گوش می‌دهد، خارج به ایران وصل می‌شود. SNI و رمز روی هر دو یکی است. سرویس با `--connection-age:4800` دوباره راه می‌افتد و فایروال را خاموش نمی‌کند.
+
 یا:
 
 ```bash
