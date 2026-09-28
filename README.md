@@ -64,6 +64,8 @@ During install on A and B, choose one protocol (must match on both sides):
 
 Reality keys, UUID, ports, and forward port lists are generated or prompted during setup.
 
+Server A also listens for **Shadowsocks 2022** (`2022-blake3-aes-256-gcm`, default port 8388). Those clients use the same hop to Server B. Port forwards still go to `127.0.0.1` on the matching port. Any other destination exits from Server B. The password is written to `/etc/xray/shadowsocks-a.txt`.
+
 ## What gets installed
 
 - **Xray-core** from official release (architecture auto-detected)

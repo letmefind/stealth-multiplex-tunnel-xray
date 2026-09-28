@@ -1610,6 +1610,34 @@ install_server_a() {
         fi
     fi
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
+
+    # Shadowsocks 2022 terminates on A. The inner connection uses the same hop as the port forwards.
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4b:${NC} Which port should accept Shadowsocks clients?"
+    echo -e "${DIM}Shadowsocks 2022 (2022-blake3-aes-256-gcm). Traffic goes through the tunnel and exits on Server B.${NC}"
+    while true; do
+        echo -e "${CYAN}${ARROW}${NC} Enter Shadowsocks port ${DIM}[8388]${NC}: \c"
+        read SS_PORT
+        SS_PORT="${SS_PORT:-8388}"
+        if ! validate_port "$SS_PORT"; then
+            print_error "Invalid port number. Use a port between 11-65535"
+            continue
+        fi
+        SS_PORT_TAKEN=false
+        IFS=',' read -ra SS_CHECK_PORTS <<< "$CLIENT_PORTS"
+        for port in "${SS_CHECK_PORTS[@]}"; do
+            port=$(echo "$port" | xargs)
+            if [ "$port" = "$SS_PORT" ]; then
+                SS_PORT_TAKEN=true
+            fi
+        done
+        if [ "$SS_PORT_TAKEN" = true ]; then
+            print_error "Port $SS_PORT is already a forwarded client port. Pick a different port."
+            continue
+        fi
+        break
+    done
+    SS_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+    print_success "Shadowsocks port: ${CYAN}${SS_PORT}${NC}"
     
     # Question 5: Domain (for WebSocket/XHTTP) or Path (for GRPC) or Server Name (for Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -1854,6 +1882,7 @@ install_server_a() {
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Client Ports" "$CLIENT_PORTS"
+    print_config_item "Shadowsocks Port" "$SS_PORT"
     print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
@@ -1947,6 +1976,19 @@ install_server_a() {
       \"settings\": { \"address\": \"127.0.0.1\", \"port\": ${port}, \"network\": \"tcp\" }
     }"
     done
+
+    INBOUNDS_JSON="${INBOUNDS_JSON},
+    {
+      \"tag\": \"ss-in\",
+      \"listen\": \"0.0.0.0\",
+      \"port\": ${SS_PORT},
+      \"protocol\": \"shadowsocks\",
+      \"settings\": {
+        \"method\": \"2022-blake3-aes-256-gcm\",
+        \"password\": \"${SS_PASSWORD}\",
+        \"network\": \"tcp,udp\"
+      }
+    }"
     
     # Build routing rules array
     ROUTING_RULES_JSON=""
@@ -1961,6 +2003,8 @@ install_server_a() {
         ROUTING_RULES_JSON="${ROUTING_RULES_JSON}
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
+    ROUTING_RULES_JSON="${ROUTING_RULES_JSON},
+      { \"type\": \"field\", \"inboundTag\": [\"ss-in\"], \"outboundTag\": \"to-b\" }"
     
     # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
     # Flow must be set BEFORE building the config file
@@ -2159,6 +2203,14 @@ EOF
     chown root:root /etc/xray/a.json
     chmod 644 /etc/xray/a.json
     print_success "Configuration file created: /etc/xray/a.json"
+    cat > /etc/xray/shadowsocks-a.txt << EOF
+method=2022-blake3-aes-256-gcm
+port=$SS_PORT
+password=$SS_PASSWORD
+EOF
+    chown root:root /etc/xray/shadowsocks-a.txt
+    chmod 600 /etc/xray/shadowsocks-a.txt
+    print_success "Shadowsocks client settings saved: /etc/xray/shadowsocks-a.txt"
     print_section_end
     
     # Create systemd service
@@ -2197,14 +2249,16 @@ EOF
             port=$(echo "$port" | xargs) # trim whitespace
             ufw allow "$port/tcp"
         done
+        ufw allow "$SS_PORT/tcp"
+        ufw allow "$SS_PORT/udp"
         # KCP uses UDP, so allow UDP on tunnel port
         if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
             ufw allow "$TUNNEL_PORT/udp"
             print_info "KCP detected: UDP allowed on tunnel port $TUNNEL_PORT"
         fi
-        print_success "Firewall configured for client ports: $CLIENT_PORTS"
+        print_success "Firewall configured for client ports: $CLIENT_PORTS and Shadowsocks port $SS_PORT"
     else
-        print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS"
+        print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS and Shadowsocks $SS_PORT (tcp+udp)"
         if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
             print_warning "KCP uses UDP: Please allow UDP on port $TUNNEL_PORT"
         fi
@@ -2230,6 +2284,11 @@ EOF
     print_info "Configuration saved to: /etc/xray/a.json"
     print_info "Service: xray-a.service"
     print_info "Logs location: /var/log/xray/"
+    echo
+    print_info "Shadowsocks clients connect to this server, port ${CYAN}${SS_PORT}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Method:${NC} ${CYAN}2022-blake3-aes-256-gcm${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Password:${NC} ${CYAN}${SS_PASSWORD}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Saved to:${NC} ${CYAN}/etc/xray/shadowsocks-a.txt${NC}"
     echo
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
         print_info "Middle topology: outbound uses credentials from Server M (A→M leg)."
@@ -3340,6 +3399,8 @@ BASEEOF
     { "tag": "to-port-$port", "protocol": "freedom", "settings": { "redirect": "127.0.0.1:$port" } }
 OUTBOUNDEOF
     done
+    echo "," >> "$TEMP_CONFIG"
+    echo '    { "protocol": "freedom", "tag": "direct" }' >> "$TEMP_CONFIG"
     
     # Add routing rules
     cat >> "$TEMP_CONFIG" << ROUTINGEOF
@@ -3358,9 +3419,11 @@ ROUTINGEOF
             echo "," >> "$TEMP_CONFIG"
         fi
         cat >> "$TEMP_CONFIG" << RULEEOF
-      { "type": "field", "inboundTag": ["tunnel-in"], "port": $port, "outboundTag": "to-port-$port" }
+      { "type": "field", "inboundTag": ["tunnel-in"], "ip": ["127.0.0.1"], "port": $port, "outboundTag": "to-port-$port" }
 RULEEOF
     done
+    echo "," >> "$TEMP_CONFIG"
+    echo '      { "type": "field", "inboundTag": ["tunnel-in"], "outboundTag": "direct" }' >> "$TEMP_CONFIG"
     
     cat >> "$TEMP_CONFIG" << ENDEOF
     ]
