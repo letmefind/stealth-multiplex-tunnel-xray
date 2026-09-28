@@ -38,8 +38,6 @@ sudo bash install xray a
 
 پروتکل و transport روی همهٔ hopها یکسان باشد.
 
-سرور A علاوه بر پورت‌های فوروارد، **Shadowsocks 2022** می‌پذیرد (`2022-blake3-aes-256-gcm`، پورت پیش‌فرض 8388). همان تونل تا سرور B استفاده می‌شود. رمز در `/etc/xray/shadowsocks-a.txt` ذخیره می‌شود.
-
 **UUID (دو پای جدا — نباید یکی باشند):**
 
 | پای | تولید | باید برابر باشد |
@@ -62,6 +60,7 @@ sudo bash install xray a
 | 7 | KCP (mKCP) — پیش‌فرض: MTU 1350، TTI 20ms، uplink/downlink 500، congestion روشن، بافر 32MB، پورت تونل 2053 |
 | 8 | Hysteria 2 — QUIC + TLS + Salamander. همان رمز روی همه hopها. Xray 26.3.27+ |
 | 9 | XHTTP/3 — XHTTP روی HTTP/3. نیاز به دامنه و Xray 26.3.27+ |
+| 10 | Shadowsocks 2022 — خود تونل A به B روی TCP. همان کلید روی هر دو سرور |
 
 ## مسیرها و سرویس‌ها
 

@@ -1475,8 +1475,8 @@ choose_transport() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP, low latency${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}8.${NC} ${WHITE}Hysteria 2${NC} ${DIM}- QUIC + TLS + Salamander (v26.3.27)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}9.${NC} ${WHITE}XHTTP/3${NC} ${DIM}- XHTTP over HTTP/3, BBR (v26.3.27)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}is not in this list. On Server A it is the next question, default port 8388.${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-9, default: 1]${NC}: \c"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}10.${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}- TCP tunnel from A to B, same job as VLESS${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-10, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     case $TRANSPORT_CHOICE in
@@ -1489,6 +1489,7 @@ choose_transport() {
         7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
         8) TRANSPORT_PROTOCOL="hysteria"; USE_REALITY=false ;;
         9) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false; XHTTP_HTTP3=true ;;
+        10) TRANSPORT_PROTOCOL="shadowsocks"; USE_REALITY=false ;;
         *)
             print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
             TRANSPORT_PROTOCOL="splithttp"
@@ -1497,6 +1498,17 @@ choose_transport() {
     esac
     if [ "$USE_REALITY" = true ] && [ -n "$TUNNEL_PORT" ] && [ "$TUNNEL_PORT" != "443" ]; then
         print_warning "REALITY on a port other than 443 is easier to block (Xray v26.3.27). Prefer 443."
+    fi
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo -e "${DIM}2022-blake3-aes-256-gcm over TCP. Leave empty on the first server to generate a key. Paste that same key on the other servers.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Shadowsocks tunnel key: \c"
+        read SS_TUNNEL_PASSWORD
+        if [ -z "$SS_TUNNEL_PASSWORD" ]; then
+            SS_TUNNEL_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+            print_success "Generated Shadowsocks key: ${CYAN}${SS_TUNNEL_PASSWORD}${NC}"
+        else
+            print_success "Shadowsocks key set"
+        fi
     fi
     if [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
         echo -e "${DIM}Leave empty on the first server to generate a password. Paste that same password on the other servers.${NC}"
@@ -1629,34 +1641,6 @@ install_server_a() {
         fi
     fi
     print_success "Client Ports: ${CYAN}${CLIENT_PORTS}${NC}"
-
-    # Shadowsocks 2022 terminates on A. The inner connection uses the same hop as the port forwards.
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4b:${NC} Which port should accept Shadowsocks clients?"
-    echo -e "${DIM}Shadowsocks 2022 (2022-blake3-aes-256-gcm). Traffic goes through the tunnel and exits on Server B.${NC}"
-    while true; do
-        echo -e "${CYAN}${ARROW}${NC} Enter Shadowsocks port ${DIM}[8388]${NC}: \c"
-        read SS_PORT
-        SS_PORT="${SS_PORT:-8388}"
-        if ! validate_port "$SS_PORT"; then
-            print_error "Invalid port number. Use a port between 11-65535"
-            continue
-        fi
-        SS_PORT_TAKEN=false
-        IFS=',' read -ra SS_CHECK_PORTS <<< "$CLIENT_PORTS"
-        for port in "${SS_CHECK_PORTS[@]}"; do
-            port=$(echo "$port" | xargs)
-            if [ "$port" = "$SS_PORT" ]; then
-                SS_PORT_TAKEN=true
-            fi
-        done
-        if [ "$SS_PORT_TAKEN" = true ]; then
-            print_error "Port $SS_PORT is already a forwarded client port. Pick a different port."
-            continue
-        fi
-        break
-    done
-    SS_PASSWORD=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
-    print_success "Shadowsocks port: ${CYAN}${SS_PORT}${NC}"
     
     # Question 5: Domain (for WebSocket/XHTTP) or Path (for GRPC) or Server Name (for Reality)
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -1901,7 +1885,6 @@ install_server_a() {
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Client Ports" "$CLIENT_PORTS"
-    print_config_item "Shadowsocks Port" "$SS_PORT"
     if [ "$XHTTP_HTTP3" = true ]; then
         print_config_item "Transport Protocol" "XHTTP/3"
     else
@@ -1999,19 +1982,6 @@ install_server_a() {
       \"settings\": { \"address\": \"127.0.0.1\", \"port\": ${port}, \"network\": \"tcp\" }
     }"
     done
-
-    INBOUNDS_JSON="${INBOUNDS_JSON},
-    {
-      \"tag\": \"ss-in\",
-      \"listen\": \"0.0.0.0\",
-      \"port\": ${SS_PORT},
-      \"protocol\": \"shadowsocks\",
-      \"settings\": {
-        \"method\": \"2022-blake3-aes-256-gcm\",
-        \"password\": \"${SS_PASSWORD}\",
-        \"network\": \"tcp,udp\"
-      }
-    }"
     
     # Build routing rules array
     ROUTING_RULES_JSON=""
@@ -2026,8 +1996,6 @@ install_server_a() {
         ROUTING_RULES_JSON="${ROUTING_RULES_JSON}
       { \"type\": \"field\", \"inboundTag\": [\"entry-${port}\"], \"outboundTag\": \"to-b\" }"
     done
-    ROUTING_RULES_JSON="${ROUTING_RULES_JSON},
-      { \"type\": \"field\", \"inboundTag\": [\"ss-in\"], \"outboundTag\": \"to-b\" }"
     
     # Determine if flow is needed (only for TCP + Reality, not TCP Raw)
     # Flow must be set BEFORE building the config file
@@ -2043,6 +2011,39 @@ install_server_a() {
         SEED_CONFIG=", \"seed\": \"$SEED\""
     fi
     
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        HOP_A_HEAD=$(cat <<HOPA
+      "protocol": "shadowsocks",
+      "settings": {
+        "servers": [
+          {
+            "address": "$SERVER_B_IP",
+            "port": $TUNNEL_PORT,
+            "method": "2022-blake3-aes-256-gcm",
+            "password": "$SS_TUNNEL_PASSWORD"
+          }
+        ]
+      },
+HOPA
+)
+    else
+        HOP_A_HEAD=$(cat <<HOPA
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$SERVER_B_IP",
+            "port": $TUNNEL_PORT,
+            "users": [
+              { "id": "$UUID", "encryption": "none"$FLOW_CONFIG$SEED_CONFIG }
+            ]
+          }
+        ]
+      },
+HOPA
+)
+    fi
+
     # Build complete config file directly
     cat > "$TEMP_CONFIG_A" << EOF
 {
@@ -2056,18 +2057,7 @@ install_server_a() {
   "outbounds": [
     {
       "tag": "to-b",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "$SERVER_B_IP",
-            "port": $TUNNEL_PORT,
-            "users": [
-              { "id": "$UUID", "encryption": "none"$FLOW_CONFIG$SEED_CONFIG }
-            ]
-          }
-        ]
-      },
+$HOP_A_HEAD
       "streamSettings": {
 STREAM_SETTINGS_PLACEHOLDER
       }
@@ -2084,7 +2074,9 @@ EOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo '        "network": "tcp"' > "$STREAM_SETTINGS_TEMP"
+    elif [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
         write_stream_settings outbound "$STREAM_SETTINGS_TEMP"
     elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         if [ "$USE_REALITY" = true ]; then
@@ -2228,14 +2220,6 @@ EOF
     chown root:root /etc/xray/a.json
     chmod 644 /etc/xray/a.json
     print_success "Configuration file created: /etc/xray/a.json"
-    cat > /etc/xray/shadowsocks-a.txt << EOF
-method=2022-blake3-aes-256-gcm
-port=$SS_PORT
-password=$SS_PASSWORD
-EOF
-    chown root:root /etc/xray/shadowsocks-a.txt
-    chmod 600 /etc/xray/shadowsocks-a.txt
-    print_success "Shadowsocks client settings saved: /etc/xray/shadowsocks-a.txt"
     print_section_end
     
     # Create systemd service
@@ -2274,16 +2258,14 @@ EOF
             port=$(echo "$port" | xargs) # trim whitespace
             ufw allow "$port/tcp"
         done
-        ufw allow "$SS_PORT/tcp"
-        ufw allow "$SS_PORT/udp"
-        # KCP uses UDP, so allow UDP on tunnel port
+        # UDP transports need the tunnel port opened
         if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
             ufw allow "$TUNNEL_PORT/udp"
             print_info "UDP allowed on tunnel port $TUNNEL_PORT"
         fi
-        print_success "Firewall configured for client ports: $CLIENT_PORTS and Shadowsocks port $SS_PORT"
+        print_success "Firewall configured for client ports: $CLIENT_PORTS"
     else
-        print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS and Shadowsocks $SS_PORT (tcp+udp)"
+        print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS"
         if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
             print_warning "This transport uses UDP: allow UDP on port $TUNNEL_PORT"
         fi
@@ -2315,11 +2297,11 @@ EOF
     print_info "Service: xray-a.service"
     print_info "Logs location: /var/log/xray/"
     echo
-    print_info "Shadowsocks clients connect to this server, port ${CYAN}${SS_PORT}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Method:${NC} ${CYAN}2022-blake3-aes-256-gcm${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Password:${NC} ${CYAN}${SS_PASSWORD}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Saved to:${NC} ${CYAN}/etc/xray/shadowsocks-a.txt${NC}"
-    echo
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks method:${NC} ${CYAN}2022-blake3-aes-256-gcm${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks key (same on Server B):${NC} ${CYAN}${SS_TUNNEL_PASSWORD}${NC}"
+        echo
+    fi
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
         print_info "Middle topology: outbound uses credentials from Server M (A→M leg)."
     else
@@ -2381,6 +2363,11 @@ write_stream_settings() {
     local short_id_val="${SHORT_ID}"
     if [ "$role" = "inbound" ] && [ -n "$SERVER_B_SHORT_IDS" ]; then
         short_id_val=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
+    fi
+
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo '        "network": "tcp"' > "$outfile"
+        return
     fi
 
     if [ "$XHTTP_HTTP3" = true ]; then
@@ -2807,6 +2794,62 @@ install_server_m() {
     M_SHORT_ID_IN="$SHORT_ID"
     M_SERVER_NAME_IN="$SERVER_NAME"
 
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo -e "${DIM}Key for the hop from this server to Server B. Leave empty to reuse the key generated above.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Shadowsocks key from Server B: \c"
+        read SS_PASS_DOWN
+        SS_PASS_DOWN="${SS_PASS_DOWN:-$SS_TUNNEL_PASSWORD}"
+        HOP_M_IN=$(cat <<HOPM
+      "protocol": "shadowsocks",
+      "settings": {
+        "method": "2022-blake3-aes-256-gcm",
+        "password": "$SS_TUNNEL_PASSWORD",
+        "network": "tcp"
+      },
+HOPM
+)
+        HOP_M_OUT=$(cat <<HOPM
+      "protocol": "shadowsocks",
+      "settings": {
+        "servers": [
+          {
+            "address": "$SERVER_B_DEST_IP",
+            "port": $TUNNEL_PORT_B,
+            "method": "2022-blake3-aes-256-gcm",
+            "password": "$SS_PASS_DOWN"
+          }
+        ]
+      },
+HOPM
+)
+    else
+        HOP_M_IN=$(cat <<HOPM
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "$UUID"$FLOW_IN$SEED_IN }
+        ],
+        "decryption": "none"
+      },
+HOPM
+)
+        HOP_M_OUT=$(cat <<HOPM
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "$SERVER_B_DEST_IP",
+            "port": $TUNNEL_PORT_B,
+            "users": [
+              { "id": "$UUID_B", "encryption": "none"$FLOW_OUT$SEED_OUT }
+            ]
+          }
+        ]
+      },
+HOPM
+)
+    fi
+
     STREAM_IN=$(mktemp)
     STREAM_OUT=$(mktemp)
     SERVER_B_SHORT_IDS="\"$SHORT_ID\""
@@ -2830,13 +2873,7 @@ install_server_m() {
       "tag": "tunnel-in",
       "listen": "0.0.0.0",
       "port": $TUNNEL_PORT,
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          { "id": "$UUID"$FLOW_IN$SEED_IN }
-        ],
-        "decryption": "none"
-      },
+$HOP_M_IN
       "streamSettings": {
 MEOF
     cat "$STREAM_IN" >> "$TEMP_M"
@@ -2847,18 +2884,7 @@ MEOF
   "outbounds": [
     {
       "tag": "to-b",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "$SERVER_B_DEST_IP",
-            "port": $TUNNEL_PORT_B,
-            "users": [
-              { "id": "$UUID_B", "encryption": "none"$FLOW_OUT$SEED_OUT }
-            ]
-          }
-        ]
-      },
+$HOP_M_OUT
       "streamSettings": {
 MEOF2
     cat "$STREAM_OUT" >> "$TEMP_M"
@@ -3418,6 +3444,29 @@ install_server_b() {
     
     # Generate Server B configuration with port-preserving routing
     TEMP_CONFIG=$(mktemp)
+
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        HOP_B_HEAD=$(cat <<HOPB
+      "protocol": "shadowsocks",
+      "settings": {
+        "method": "2022-blake3-aes-256-gcm",
+        "password": "$SS_TUNNEL_PASSWORD",
+        "network": "tcp"
+      },
+HOPB
+)
+    else
+        HOP_B_HEAD=$(cat <<HOPB
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          { "id": "UUID_PLACEHOLDER"$FLOW_CONFIG$SEED_CONFIG }
+        ],
+        "decryption": "none"
+      },
+HOPB
+)
+    fi
     
     # Start with base config
     cat > "$TEMP_CONFIG" << BASEEOF
@@ -3432,13 +3481,7 @@ install_server_b() {
       "tag": "tunnel-in",
       "listen": "0.0.0.0",
       "port": TUNNEL_PORT_PLACEHOLDER,
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          { "id": "UUID_PLACEHOLDER"$FLOW_CONFIG$SEED_CONFIG }
-        ],
-        "decryption": "none"
-      },
+$HOP_B_HEAD
       "streamSettings": {
 STREAM_SETTINGS_PLACEHOLDER
       }
@@ -3495,7 +3538,9 @@ ENDEOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+        echo '        "network": "tcp"' > "$STREAM_SETTINGS_TEMP"
+    elif [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
         write_stream_settings inbound "$STREAM_SETTINGS_TEMP"
     elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         if [ "$USE_REALITY" = true ]; then
