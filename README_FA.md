@@ -60,6 +60,8 @@ sudo bash install xray a
 | 5 | WebSocket |
 | 6 | gRPC |
 | 7 | KCP (mKCP) — پیش‌فرض: MTU 1350، TTI 20ms، uplink/downlink 500، congestion روشن، بافر 32MB، پورت تونل 2053 |
+| 8 | Hysteria 2 — QUIC + TLS + Salamander. همان رمز روی همه hopها. Xray 26.3.27+ |
+| 9 | XHTTP/3 — XHTTP روی HTTP/3. نیاز به دامنه و Xray 26.3.27+ |
 
 ## مسیرها و سرویس‌ها
 

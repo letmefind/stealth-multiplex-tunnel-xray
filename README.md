@@ -61,6 +61,8 @@ During install on A and B, choose one protocol (must match on both sides):
 | 5 | WebSocket | Needs domain/path as prompted |
 | 6 | gRPC | Needs service name |
 | 7 | KCP (mKCP) | UDP; defaults: MTU 1350, TTI 20 ms, uplink/downlink 500, congestion on, 32 MB buffers, tunnel port 2053 |
+| 8 | Hysteria 2 | QUIC + TLS + Salamander finalmask. Same auth password on every hop. Needs Xray 26.3.27+ |
+| 9 | XHTTP/3 | XHTTP over HTTP/3 (BBR). Needs a domain and Xray 26.3.27+ |
 
 Reality keys, UUID, ports, and forward port lists are generated or prompted during setup.
 

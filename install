@@ -572,7 +572,7 @@ install_xray_offline() {
         XRAY_VERSION="$LATEST_VERSION"
         print_info "Using latest version: ${CYAN}${XRAY_VERSION}${NC}"
     else
-        XRAY_VERSION="v1.8.18"
+        XRAY_VERSION="v26.3.27"
         print_warning "Using fallback version: ${CYAN}${XRAY_VERSION}${NC}"
     fi
     
@@ -1448,6 +1448,73 @@ MTU_SCRIPT_EOF
     fi
 }
 
+ensure_quic_cert() {
+    local cn="$1"
+    mkdir -p /etc/xray
+    if [ -f /etc/xray/quic.crt ] && [ -f /etc/xray/quic.key ]; then
+        return 0
+    fi
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -keyout /etc/xray/quic.key -out /etc/xray/quic.crt \
+        -days 3650 -nodes -subj "/CN=${cn}" >/dev/null 2>&1
+    chmod 600 /etc/xray/quic.key
+}
+
+# One menu for A, M, and B. Choice 9 stays on splithttp and sets XHTTP_HTTP3.
+choose_transport() {
+    local title="$1"
+    XHTTP_HTTP3=false
+    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}${title}${NC}"
+    echo -e "${DIM}Use the same choice on every hop.${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- Stealth HTTP (recommended)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- HTTP without Reality (CDN)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP, no encryption${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- CDN${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- CDN${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP, low latency${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}8.${NC} ${WHITE}Hysteria 2${NC} ${DIM}- QUIC + TLS + Salamander (v26.3.27)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}9.${NC} ${WHITE}XHTTP/3${NC} ${DIM}- XHTTP over HTTP/3, BBR (v26.3.27)${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-9, default: 1]${NC}: \c"
+    read TRANSPORT_CHOICE
+    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
+    case $TRANSPORT_CHOICE in
+        1) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=true ;;
+        2) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false ;;
+        3) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=false ;;
+        4) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=true ;;
+        5) TRANSPORT_PROTOCOL="ws"; USE_REALITY=false ;;
+        6) TRANSPORT_PROTOCOL="grpc"; USE_REALITY=false ;;
+        7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
+        8) TRANSPORT_PROTOCOL="hysteria"; USE_REALITY=false ;;
+        9) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false; XHTTP_HTTP3=true ;;
+        *)
+            print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
+            TRANSPORT_PROTOCOL="splithttp"
+            USE_REALITY=true
+            ;;
+    esac
+    if [ "$USE_REALITY" = true ] && [ -n "$TUNNEL_PORT" ] && [ "$TUNNEL_PORT" != "443" ]; then
+        print_warning "REALITY on a port other than 443 is easier to block (Xray v26.3.27). Prefer 443."
+    fi
+    if [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+        echo -e "${DIM}Leave empty on the first server to generate a password. Paste that same password on the other servers.${NC}"
+        echo -e "${CYAN}${ARROW}${NC} Hysteria auth password: \c"
+        read HY2_AUTH
+        if [ -z "$HY2_AUTH" ]; then
+            HY2_AUTH=$(head -c 24 /dev/urandom | base64 | tr -d '\n')
+            print_success "Generated Hysteria auth: ${CYAN}${HY2_AUTH}${NC}"
+        else
+            print_success "Hysteria auth set"
+        fi
+    fi
+    if [ "$XHTTP_HTTP3" = true ]; then
+        print_success "Transport Protocol: ${CYAN}XHTTP/3${NC}"
+    else
+        print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    fi
+}
+
 # Function to install Server A
 install_server_a() {
     print_section "Server A Configuration"
@@ -1515,56 +1582,7 @@ install_server_a() {
     done
     print_success "Tunnel Port: ${CYAN}${TUNNEL_PORT}${NC}"
     
-    # Question 3: Transport Protocol Selection
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 3:${NC} Which transport protocol do you want to use?"
-    echo -e "${DIM}Select the transport protocol for the tunnel connection.${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- Stealth HTTP-based transport (recommended)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- HTTP-based transport without Reality (fast + CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Direct TCP connection (fastest, no encryption)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption (stealth + fast)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- WebSocket transport (good for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- gRPC transport (good for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP-based transport (low latency)${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
-    read TRANSPORT_CHOICE
-    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
-    
-    case $TRANSPORT_CHOICE in
-        1)
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=true
-            ;;
-        2)
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=false
-            ;;
-        3)
-            TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=false
-            ;;
-        4)
-            TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=true
-            ;;
-        5)
-            TRANSPORT_PROTOCOL="ws"
-            USE_REALITY=false
-            ;;
-        6)
-            TRANSPORT_PROTOCOL="grpc"
-            USE_REALITY=false
-            ;;
-        7)
-            TRANSPORT_PROTOCOL="kcp"
-            USE_REALITY=false
-            ;;
-        *)
-            print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=true
-            ;;
-    esac
-    print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    choose_transport "Question 3: Which transport protocol do you want to use?"
     
     # Question 4: Client Ports (ports that Server A will listen on)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 4:${NC} Which ports should Server A listen on for client connections?"
@@ -2061,7 +2079,9 @@ EOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    if [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+        write_stream_settings outbound "$STREAM_SETTINGS_TEMP"
+    elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         if [ "$USE_REALITY" = true ]; then
             # XHTTP + Reality configuration for Server A (outbound)
             FIRST_SHORT_ID="$SHORT_ID"
@@ -2252,15 +2272,15 @@ EOF
         ufw allow "$SS_PORT/tcp"
         ufw allow "$SS_PORT/udp"
         # KCP uses UDP, so allow UDP on tunnel port
-        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
             ufw allow "$TUNNEL_PORT/udp"
-            print_info "KCP detected: UDP allowed on tunnel port $TUNNEL_PORT"
+            print_info "UDP allowed on tunnel port $TUNNEL_PORT"
         fi
         print_success "Firewall configured for client ports: $CLIENT_PORTS and Shadowsocks port $SS_PORT"
     else
         print_warning "UFW not found. Please configure firewall manually for ports: $CLIENT_PORTS and Shadowsocks $SS_PORT (tcp+udp)"
-        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
-            print_warning "KCP uses UDP: Please allow UDP on port $TUNNEL_PORT"
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
+            print_warning "This transport uses UDP: allow UDP on port $TUNNEL_PORT"
         fi
     fi
     print_section_end
@@ -2310,6 +2330,9 @@ EOF
     if [ -n "$TRANSPORT_PATH" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Path:${NC} ${CYAN}${TRANSPORT_PATH}${NC}"
     fi
+    if [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Hysteria auth (same on Server B):${NC} ${CYAN}${HY2_AUTH}${NC}"
+    fi
     if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP MTU (for Server B):${NC} ${CYAN}${KCP_MTU}${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}KCP TTI (for Server B):${NC} ${CYAN}${KCP_TTI}${NC}"
@@ -2346,6 +2369,90 @@ write_stream_settings() {
         short_id_val=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
     fi
 
+    if [ "$XHTTP_HTTP3" = true ]; then
+        local host="${XHTTP_DOMAIN:-localhost}"
+        if [ "$role" = "inbound" ]; then
+            ensure_quic_cert "$host"
+            cat > "$outfile" << EOF
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": ["h3"],
+          "certificates": [
+            { "certificateFile": "/etc/xray/quic.crt", "keyFile": "/etc/xray/quic.key" }
+          ]
+        },
+        "xhttpSettings": {
+          "host": "$host",
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "mode": "stream-one"
+        }
+EOF
+        else
+            cat > "$outfile" << EOF
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "$host",
+          "alpn": ["h3"],
+          "allowInsecure": true
+        },
+        "xhttpSettings": {
+          "host": "$host",
+          "path": "${TRANSPORT_PATH:-/assets}",
+          "mode": "stream-one"
+        }
+EOF
+        fi
+        return
+    fi
+
+    if [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+        local sni="${SERVER_NAME:-localhost}"
+        if [ "$role" = "inbound" ]; then
+            ensure_quic_cert "$sni"
+            cat > "$outfile" << EOF
+        "network": "hysteria",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": ["h3"],
+          "certificates": [
+            { "certificateFile": "/etc/xray/quic.crt", "keyFile": "/etc/xray/quic.key" }
+          ]
+        },
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": "$HY2_AUTH"
+        },
+        "finalmask": {
+          "udp": [
+            { "type": "salamander", "settings": { "password": "$HY2_AUTH" } }
+          ]
+        }
+EOF
+        else
+            cat > "$outfile" << EOF
+        "network": "hysteria",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "$sni",
+          "alpn": ["h3"],
+          "allowInsecure": true
+        },
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": "$HY2_AUTH"
+        },
+        "finalmask": {
+          "udp": [
+            { "type": "salamander", "settings": { "password": "$HY2_AUTH" } }
+          ]
+        }
+EOF
+        fi
+        return
+    fi
+
     if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         if [ "$USE_REALITY" = true ]; then
             if [ "$role" = "inbound" ]; then
@@ -2357,7 +2464,8 @@ write_stream_settings() {
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$PRIVATE_KEY",
-          "shortIds": ["$short_id_val"]
+          "shortIds": ["$short_id_val"],
+          "minClientVer": "1.0.0"
         },
         "splithttpSettings": {
           "path": "${TRANSPORT_PATH:-/assets}",
@@ -2422,7 +2530,8 @@ EOF
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$PRIVATE_KEY",
-          "shortIds": ["$short_id_val"]
+          "shortIds": ["$short_id_val"],
+          "minClientVer": "1.0.0"
         },
         "tcpSettings": {
           "acceptProxyProtocol": false,
@@ -2523,29 +2632,7 @@ install_server_m() {
         exit 1
     fi
 
-    # Transport protocol (same menu as A/B)
-    echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 1:${NC} Which transport protocol for this tunnel?"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} XHTTP (SplitHTTP) + Reality"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} XHTTP (SplitHTTP)"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} TCP Raw"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} TCP + Reality"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} WebSocket"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} GRPC"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} KCP (mKCP)"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
-    read TRANSPORT_CHOICE
-    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
-    case $TRANSPORT_CHOICE in
-        1) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=true ;;
-        2) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false ;;
-        3) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=false ;;
-        4) TRANSPORT_PROTOCOL="tcp"; USE_REALITY=true ;;
-        5) TRANSPORT_PROTOCOL="ws"; USE_REALITY=false ;;
-        6) TRANSPORT_PROTOCOL="grpc"; USE_REALITY=false ;;
-        7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
-        *) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=true ;;
-    esac
-    print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    choose_transport "Question 1: Which transport protocol for this tunnel?"
 
     # Server B (downstream destination for M→B leg)
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Question 2:${NC} What is Server B IP address?"
@@ -2877,54 +2964,7 @@ install_server_b() {
         echo -e "${DIM}This should match the transport protocol selected on Server A.${NC}"
     fi
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- With Reality (recommended for stealth)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}XHTTP (SplitHTTP)${NC} ${DIM}- Without Reality (fast + CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}TCP Raw${NC} ${DIM}- Without TLS (fastest)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} ${WHITE}TCP + Reality${NC} ${DIM}- TCP with Reality encryption${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} ${WHITE}WebSocket${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} ${WHITE}GRPC${NC} ${DIM}- Without TLS (suitable for CDN)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP-based transport (low latency)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-7, default: 1]${NC}: \c"
-    read TRANSPORT_CHOICE
-    TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
-    
-    case $TRANSPORT_CHOICE in
-        1)
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=true
-            ;;
-        2)
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=false
-            ;;
-        3)
-            TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=false
-            ;;
-        4)
-            TRANSPORT_PROTOCOL="tcp"
-            USE_REALITY=true
-            ;;
-        5)
-            TRANSPORT_PROTOCOL="ws"
-            USE_REALITY=false
-            ;;
-        6)
-            TRANSPORT_PROTOCOL="grpc"
-            USE_REALITY=false
-            ;;
-        7)
-            TRANSPORT_PROTOCOL="kcp"
-            USE_REALITY=false
-            ;;
-        *)
-            print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
-            TRANSPORT_PROTOCOL="splithttp"
-            USE_REALITY=true
-            ;;
-    esac
-    print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    choose_transport "Which transport protocol was used on the other server?"
     
     # Middle topology: generate B inbound credentials for M→B (do not use A's keys)
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
@@ -3433,7 +3473,9 @@ ENDEOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
+    if [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
+        write_stream_settings inbound "$STREAM_SETTINGS_TEMP"
+    elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
         if [ "$USE_REALITY" = true ]; then
             # XHTTP + Reality configuration for Server B (inbound)
             FORMATTED_SHORT_ID=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
@@ -3445,7 +3487,8 @@ ENDEOF
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortIds": ["$FORMATTED_SHORT_ID"]
+          "shortIds": ["$FORMATTED_SHORT_ID"],
+          "minClientVer": "1.0.0"
         },
         "splithttpSettings": {
           "path": "/assets",
@@ -3488,7 +3531,8 @@ EOF
           "dest": "www.microsoft.com:443",
           "serverNames": ["$SERVER_NAME"],
           "privateKey": "$SERVER_B_PRIVATE_KEY",
-          "shortIds": ["$FORMATTED_SHORT_ID"]
+          "shortIds": ["$FORMATTED_SHORT_ID"],
+          "minClientVer": "1.0.0"
         },
         "tcpSettings": {
           "acceptProxyProtocol": false,
@@ -3601,10 +3645,9 @@ EOF
     print_info "Configuring firewall..."
     if command -v ufw >/dev/null 2>&1; then
         ufw allow 22/tcp
-        # KCP uses UDP, TCP for other protocols
-        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
             ufw allow "$TUNNEL_PORT/udp"
-            print_info "KCP detected: UDP allowed on tunnel port $TUNNEL_PORT"
+            print_info "UDP allowed on tunnel port $TUNNEL_PORT"
         else
             ufw allow "$TUNNEL_PORT/tcp"
         fi
@@ -3616,8 +3659,8 @@ EOF
         print_success "Firewall configured"
     else
         print_warning "UFW not found. Please configure firewall manually for ports: $ASSIGNED_PORTS"
-        if [ "$TRANSPORT_PROTOCOL" = "kcp" ]; then
-            print_warning "KCP uses UDP: Please allow UDP on port $TUNNEL_PORT"
+        if [ "$TRANSPORT_PROTOCOL" = "kcp" ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ] || [ "$XHTTP_HTTP3" = true ]; then
+            print_warning "This transport uses UDP: allow UDP on port $TUNNEL_PORT"
         fi
     fi
     
