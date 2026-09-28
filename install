@@ -1475,6 +1475,7 @@ choose_transport() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP, low latency${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}8.${NC} ${WHITE}Hysteria 2${NC} ${DIM}- QUIC + TLS + Salamander (v26.3.27)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}9.${NC} ${WHITE}XHTTP/3${NC} ${DIM}- XHTTP over HTTP/3, BBR (v26.3.27)${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}is not in this list. On Server A it is the next question, default port 8388.${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-9, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
