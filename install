@@ -1902,7 +1902,11 @@ install_server_a() {
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Client Ports" "$CLIENT_PORTS"
     print_config_item "Shadowsocks Port" "$SS_PORT"
-    print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    if [ "$XHTTP_HTTP3" = true ]; then
+        print_config_item "Transport Protocol" "XHTTP/3"
+    else
+        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    fi
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
     fi
@@ -2295,7 +2299,12 @@ EOF
     systemctl daemon-reload
     systemctl enable xray-a
     systemctl restart xray-a
-    print_success "Service created and started: xray-a.service"
+    if systemctl is-active --quiet xray-a; then
+        print_success "Service created and started: xray-a.service"
+    else
+        print_error "xray-a failed to start. Last log lines:"
+        journalctl -u xray-a -n 20 --no-pager || true
+    fi
     print_section_end
     
     # Show completion message
@@ -2317,7 +2326,11 @@ EOF
         print_warning "IMPORTANT: Save these details for Server B installation:"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     fi
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    if [ "$XHTTP_HTTP3" = true ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}XHTTP/3 (HTTP/3, UDP)${NC}"
+    else
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    fi
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
         if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
             echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server M):${NC} ${CYAN}${WS_DOMAIN}${NC}"
@@ -2748,7 +2761,11 @@ install_server_m() {
     fi
 
     print_section "Configuration Summary"
-    print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    if [ "$XHTTP_HTTP3" = true ]; then
+        print_config_item "Transport Protocol" "XHTTP/3"
+    else
+        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    fi
     print_config_item "Server B (downstream)" "$SERVER_B_DEST_IP:$TUNNEL_PORT_B"
     print_config_item "M listen port (A→M)" "$TUNNEL_PORT"
     print_config_item "UUID (A→M, for Server A)" "$UUID"
@@ -3323,7 +3340,11 @@ install_server_b() {
     # Show configuration summary
     print_section "Configuration Summary"
     print_config_item "UUID" "$UUID"
-    print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    if [ "$XHTTP_HTTP3" = true ]; then
+        print_config_item "Transport Protocol" "XHTTP/3"
+    else
+        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
+    fi
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
     fi
@@ -3669,7 +3690,12 @@ EOF
     systemctl daemon-reload
     systemctl enable xray-b
     systemctl restart xray-b
-    print_success "Service created and started: xray-b.service"
+    if systemctl is-active --quiet xray-b; then
+        print_success "Service created and started: xray-b.service"
+    else
+        print_error "xray-b failed to start. Last log lines:"
+        journalctl -u xray-b -n 20 --no-pager || true
+    fi
     print_section_end
     
     # Show completion message
@@ -3681,6 +3707,14 @@ EOF
     echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Logs location:${NC} /var/log/xray/"
     echo
     print_success "Tunnel is now active!"
+    if [ "$XHTTP_HTTP3" = true ]; then
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport:${NC} ${CYAN}XHTTP/3 (HTTP/3, UDP)${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain:${NC} ${CYAN}${XHTTP_DOMAIN}${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Path:${NC} ${CYAN}${TRANSPORT_PATH:-/assets}${NC}"
+        print_warning "XHTTP/3 uses UDP on port $TUNNEL_PORT. Open that UDP port on this server."
+    else
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
+    fi
     print_info "Traffic routing (port-preserving):"
     if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Tunnel Port ($TUNNEL_PORT):${NC} → Receives tunneled traffic from Server M"
