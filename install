@@ -63,10 +63,31 @@ show_tunnel_type_menu() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Transports: XHTTP, TCP, WebSocket, gRPC, KCP (mKCP)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Features: Reality, multi-port, direct A->B or relay A->M->B${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Check Xray Version${NC} ${DIM}- Compare a version with installed Xray${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} ${WHITE}Paqet Tunnel${NC} ${DIM}- Raw-socket KCP tunnel from Easy-paqet${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Separate installer: https://github.com/letmefind/Easy-paqet${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} ${WHITE}Check Xray Version${NC} ${DIM}- Compare a version with installed Xray${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${DIM}   Check if a specific version is newer than current${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC}"
     print_section_end
+}
+
+run_paqet() {
+    local url="https://raw.githubusercontent.com/letmefind/Easy-paqet/master/paqet.sh"
+    local script
+    script="$(mktemp /tmp/paqet.XXXXXX.sh)"
+    print_info "Downloading Paqet installer from Easy-paqet..."
+    if ! curl -fsSL -H "Cache-Control: no-cache" "${url}?$(date +%s)" -o "$script"; then
+        print_error "Could not download Paqet. Try: bash <(curl -fsSL $url)"
+        exit 1
+    fi
+    if ! bash -n "$script"; then
+        print_error "Downloaded Paqet script failed the syntax check"
+        rm -f "$script"
+        exit 1
+    fi
+    chmod +x "$script"
+    exec bash "$script"
 }
 
 print_section() {
@@ -3841,6 +3862,7 @@ show_usage() {
     echo
     echo -e "${WHITE}${BOLD}Tunnel Types:${NC}"
     echo -e "  ${CYAN}xray${NC}     - Xray tunnel (default)"
+    echo -e "  ${CYAN}paqet${NC}    - Paqet tunnel (downloads Easy-paqet)"
     echo
     echo -e "${WHITE}${BOLD}Topology:${NC}"
     echo -e "  ${CYAN}direct${NC}   - A → B (default)"
@@ -3854,6 +3876,7 @@ show_usage() {
     echo
     echo -e "${WHITE}${BOLD}Examples:${NC}"
     echo -e "  ${DIM}bash install${NC}              # Interactive menu (select tunnel type)"
+    echo -e "  ${DIM}bash install paqet${NC}         # Paqet tunnel (Easy-paqet)"
     echo -e "  ${DIM}bash install xray a${NC}       # Xray tunnel on Server A"
     echo -e "  ${DIM}bash install xray server-b${NC} # Xray tunnel on Server B"
     echo -e "  ${DIM}bash install xray middle b${NC} # Server B in A→M→B topology"
@@ -3877,13 +3900,15 @@ main() {
     
     # Tunnel type selection (only if no tunnel type specified)
     TUNNEL_TYPE=""
-    if [ $# -gt 0 ] && [[ "$1" == "xray" ]]; then
+    if [ $# -gt 0 ] && [[ "$1" == "paqet" ]]; then
+        run_paqet
+    elif [ $# -gt 0 ] && [[ "$1" == "xray" ]]; then
         TUNNEL_TYPE="xray"
         shift # Remove tunnel type from arguments
     elif [ $# -eq 0 ] || [[ ! "$1" =~ ^(a|b|m|server-a|server-b|server-m|auto|tunnel|dest|destination|middle)$ ]]; then
         # Show tunnel type menu
         show_tunnel_type_menu
-        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-2]${NC}"
+        echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}Enter your choice${NC} ${DIM}[1-3]${NC}"
         echo -ne "${CYAN}${ARROW}${NC} Enter choice: "
         read tunnel_choice
         
@@ -3892,6 +3917,9 @@ main() {
                 TUNNEL_TYPE="xray"
                 ;;
             2)
+                run_paqet
+                ;;
+            3)
                 TUNNEL_TYPE="check-version"
                 ;;
             *)

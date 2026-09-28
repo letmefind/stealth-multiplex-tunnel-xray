@@ -14,6 +14,8 @@ sudo bash server.sh
 
 `server.sh` downloads the latest `install` from GitHub and runs it (avoids broken local copies).
 
+The first menu can also start [Easy-paqet](https://github.com/letmefind/Easy-paqet) (choice **2**, or `sudo bash install paqet`). That downloads `paqet.sh` from Easy-paqet and runs it. Paqet stays in its own repo.
+
 Or clone and run:
 
 ```bash

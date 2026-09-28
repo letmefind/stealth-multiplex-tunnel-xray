@@ -14,6 +14,8 @@ sudo bash server.sh
 
 `server.sh` آخرین `install` را از گیت‌هاب می‌گیرد و اجرا می‌کند (از فایل خراب محلی جلوگیری می‌کند).
 
+منوی اول می‌تواند [Easy-paqet](https://github.com/letmefind/Easy-paqet) را هم شروع کند (گزینه **2** یا `sudo bash install paqet`). اسکریپت `paqet.sh` از همان مخزن دانلود و اجرا می‌شود.
+
 یا:
 
 ```bash
