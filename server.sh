@@ -9,7 +9,7 @@ INSTALL_URL="https://raw.githubusercontent.com/letmefind/stealth-multiplex-tunne
 INSTALL_SCRIPT="$(mktemp /tmp/xray-install.XXXXXX.sh)"
 trap 'rm -f "$INSTALL_SCRIPT"' EXIT
 
-if ! curl -fsSL "$INSTALL_URL" -o "$INSTALL_SCRIPT"; then
+if ! curl -fsSL -H "Cache-Control: no-cache" "${INSTALL_URL}?$(date +%s)" -o "$INSTALL_SCRIPT"; then
     echo "Error: Could not download installer from GitHub." >&2
     echo "Try: curl -fsSL $INSTALL_URL -o install && sudo bash install" >&2
     exit 1

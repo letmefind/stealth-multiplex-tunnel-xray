@@ -1517,8 +1517,13 @@ choose_transport() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP, low latency${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}8.${NC} ${WHITE}Hysteria 2${NC} ${DIM}- QUIC + TLS + Salamander (v26.3.27)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}9.${NC} ${WHITE}XHTTP/3${NC} ${DIM}- XHTTP over HTTP/3, BBR (v26.3.27)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}10.${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}- then pick TCP, TLS, XHTTP, WebSocket, gRPC, or KCP${NC}"
-    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-10, default: 1]${NC}: \c"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}10.${NC} ${WHITE}Shadowsocks + TCP${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}11.${NC} ${WHITE}Shadowsocks + TLS${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}12.${NC} ${WHITE}Shadowsocks + XHTTP${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}13.${NC} ${WHITE}Shadowsocks + WebSocket${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}14.${NC} ${WHITE}Shadowsocks + gRPC${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}15.${NC} ${WHITE}Shadowsocks + KCP${NC}"
+    echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-15, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
     case $TRANSPORT_CHOICE in
@@ -1531,7 +1536,12 @@ choose_transport() {
         7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
         8) TRANSPORT_PROTOCOL="hysteria"; USE_REALITY=false ;;
         9) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false; XHTTP_HTTP3=true ;;
-        10) USE_SHADOWSOCKS=true; USE_REALITY=false ;;
+        10) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="tcp" ;;
+        11) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="tcp"; SS_TLS=true ;;
+        12) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="splithttp" ;;
+        13) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="ws" ;;
+        14) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="grpc" ;;
+        15) USE_SHADOWSOCKS=true; USE_REALITY=false; TRANSPORT_PROTOCOL="kcp" ;;
         *)
             print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
             TRANSPORT_PROTOCOL="splithttp"
@@ -1542,25 +1552,6 @@ choose_transport() {
         print_warning "REALITY on a port other than 443 is easier to block (Xray v26.3.27). Prefer 443."
     fi
     if [ "$USE_SHADOWSOCKS" = true ]; then
-        echo -e "${DIM}Shadowsocks 2022 is the hop. Pick the transport under it. Use the same choice on every server.${NC}"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} TCP"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} TLS"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} XHTTP"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} WebSocket"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} gRPC"
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} KCP"
-        echo -e "${CYAN}${ARROW}${NC} Shadowsocks transport ${DIM}[1-6, default: 1]${NC}: \c"
-        read SS_TRANSPORT_CHOICE
-        SS_TRANSPORT_CHOICE="${SS_TRANSPORT_CHOICE:-1}"
-        case $SS_TRANSPORT_CHOICE in
-            1) TRANSPORT_PROTOCOL="tcp" ;;
-            2) TRANSPORT_PROTOCOL="tcp"; SS_TLS=true ;;
-            3) TRANSPORT_PROTOCOL="splithttp" ;;
-            4) TRANSPORT_PROTOCOL="ws" ;;
-            5) TRANSPORT_PROTOCOL="grpc" ;;
-            6) TRANSPORT_PROTOCOL="kcp" ;;
-            *) TRANSPORT_PROTOCOL="tcp" ;;
-        esac
         if [ "$SS_TLS" = true ]; then
             echo -e "${CYAN}${ARROW}${NC} TLS name ${DIM}[localhost]${NC}: \c"
             read SS_TLS_NAME
