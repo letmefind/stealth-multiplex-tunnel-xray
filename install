@@ -1460,10 +1460,52 @@ ensure_quic_cert() {
     chmod 600 /etc/xray/quic.key
 }
 
+transport_label() {
+    if [ "$USE_SHADOWSOCKS" = true ] && [ "$SS_TLS" = true ]; then
+        echo "Shadowsocks + TLS"
+    elif [ "$USE_SHADOWSOCKS" = true ]; then
+        echo "Shadowsocks + $TRANSPORT_PROTOCOL"
+    elif [ "$XHTTP_HTTP3" = true ]; then
+        echo "XHTTP/3"
+    else
+        echo "$TRANSPORT_PROTOCOL"
+    fi
+}
+
+# Shadowsocks over TCP+TLS. Self-signed cert on the inbound, allowInsecure on the outbound.
+write_ss_tls() {
+    local role="$1"
+    local outfile="$2"
+    local name="${SS_TLS_NAME:-localhost}"
+    if [ "$role" = "inbound" ]; then
+        ensure_quic_cert "$name"
+        cat > "$outfile" << EOF
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "certificates": [
+            { "certificateFile": "/etc/xray/quic.crt", "keyFile": "/etc/xray/quic.key" }
+          ]
+        }
+EOF
+    else
+        cat > "$outfile" << EOF
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "$name",
+          "allowInsecure": true
+        }
+EOF
+    fi
+}
+
 # One menu for A, M, and B. Choice 9 stays on splithttp and sets XHTTP_HTTP3.
 choose_transport() {
     local title="$1"
     XHTTP_HTTP3=false
+    USE_SHADOWSOCKS=false
+    SS_TLS=false
     echo -e "\n${CYAN}${ARROW}${NC} ${WHITE}${title}${NC}"
     echo -e "${DIM}Use the same choice on every hop.${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} ${WHITE}XHTTP (SplitHTTP) + Reality${NC} ${DIM}- Stealth HTTP (recommended)${NC}"
@@ -1475,7 +1517,7 @@ choose_transport() {
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}7.${NC} ${WHITE}KCP (mKCP)${NC} ${DIM}- UDP, low latency${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}8.${NC} ${WHITE}Hysteria 2${NC} ${DIM}- QUIC + TLS + Salamander (v26.3.27)${NC}"
     echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}9.${NC} ${WHITE}XHTTP/3${NC} ${DIM}- XHTTP over HTTP/3, BBR (v26.3.27)${NC}"
-    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}10.${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}- TCP tunnel from A to B, same job as VLESS${NC}"
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}10.${NC} ${WHITE}Shadowsocks 2022${NC} ${DIM}- then pick TCP, TLS, XHTTP, WebSocket, gRPC, or KCP${NC}"
     echo -e "${CYAN}${ARROW}${NC} Enter choice ${DIM}[1-10, default: 1]${NC}: \c"
     read TRANSPORT_CHOICE
     TRANSPORT_CHOICE="${TRANSPORT_CHOICE:-1}"
@@ -1489,7 +1531,7 @@ choose_transport() {
         7) TRANSPORT_PROTOCOL="kcp"; USE_REALITY=false ;;
         8) TRANSPORT_PROTOCOL="hysteria"; USE_REALITY=false ;;
         9) TRANSPORT_PROTOCOL="splithttp"; USE_REALITY=false; XHTTP_HTTP3=true ;;
-        10) TRANSPORT_PROTOCOL="shadowsocks"; USE_REALITY=false ;;
+        10) USE_SHADOWSOCKS=true; USE_REALITY=false ;;
         *)
             print_warning "Invalid choice, using XHTTP (SplitHTTP) + Reality"
             TRANSPORT_PROTOCOL="splithttp"
@@ -1499,8 +1541,32 @@ choose_transport() {
     if [ "$USE_REALITY" = true ] && [ -n "$TUNNEL_PORT" ] && [ "$TUNNEL_PORT" != "443" ]; then
         print_warning "REALITY on a port other than 443 is easier to block (Xray v26.3.27). Prefer 443."
     fi
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
-        echo -e "${DIM}2022-blake3-aes-256-gcm over TCP. Leave empty on the first server to generate a key. Paste that same key on the other servers.${NC}"
+    if [ "$USE_SHADOWSOCKS" = true ]; then
+        echo -e "${DIM}Shadowsocks 2022 is the hop. Pick the transport under it. Use the same choice on every server.${NC}"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}1.${NC} TCP"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}2.${NC} TLS"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}3.${NC} XHTTP"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}4.${NC} WebSocket"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}5.${NC} gRPC"
+        echo -e "${GRAY}${BOX_SIDE}${NC} ${CYAN}6.${NC} KCP"
+        echo -e "${CYAN}${ARROW}${NC} Shadowsocks transport ${DIM}[1-6, default: 1]${NC}: \c"
+        read SS_TRANSPORT_CHOICE
+        SS_TRANSPORT_CHOICE="${SS_TRANSPORT_CHOICE:-1}"
+        case $SS_TRANSPORT_CHOICE in
+            1) TRANSPORT_PROTOCOL="tcp" ;;
+            2) TRANSPORT_PROTOCOL="tcp"; SS_TLS=true ;;
+            3) TRANSPORT_PROTOCOL="splithttp" ;;
+            4) TRANSPORT_PROTOCOL="ws" ;;
+            5) TRANSPORT_PROTOCOL="grpc" ;;
+            6) TRANSPORT_PROTOCOL="kcp" ;;
+            *) TRANSPORT_PROTOCOL="tcp" ;;
+        esac
+        if [ "$SS_TLS" = true ]; then
+            echo -e "${CYAN}${ARROW}${NC} TLS name ${DIM}[localhost]${NC}: \c"
+            read SS_TLS_NAME
+            SS_TLS_NAME="${SS_TLS_NAME:-localhost}"
+        fi
+        echo -e "${DIM}2022-blake3-aes-256-gcm. Leave empty on the first server to generate a key. Paste that same key on the other servers.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Shadowsocks tunnel key: \c"
         read SS_TUNNEL_PASSWORD
         if [ -z "$SS_TUNNEL_PASSWORD" ]; then
@@ -1521,7 +1587,13 @@ choose_transport() {
             print_success "Hysteria auth set"
         fi
     fi
-    if [ "$XHTTP_HTTP3" = true ]; then
+    if [ "$USE_SHADOWSOCKS" = true ]; then
+        if [ "$SS_TLS" = true ]; then
+            print_success "Transport Protocol: ${CYAN}Shadowsocks + TLS${NC}"
+        else
+            print_success "Transport Protocol: ${CYAN}Shadowsocks + ${TRANSPORT_PROTOCOL}${NC}"
+        fi
+    elif [ "$XHTTP_HTTP3" = true ]; then
         print_success "Transport Protocol: ${CYAN}XHTTP/3${NC}"
     else
         print_success "Transport Protocol: ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
@@ -1885,11 +1957,7 @@ install_server_a() {
     fi
     print_config_item "Tunnel Port" "$TUNNEL_PORT"
     print_config_item "Client Ports" "$CLIENT_PORTS"
-    if [ "$XHTTP_HTTP3" = true ]; then
-        print_config_item "Transport Protocol" "XHTTP/3"
-    else
-        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
-    fi
+    print_config_item "Transport Protocol" "$(transport_label)"
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
     fi
@@ -2011,7 +2079,7 @@ install_server_a() {
         SEED_CONFIG=", \"seed\": \"$SEED\""
     fi
     
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+    if [ "$USE_SHADOWSOCKS" = true ]; then
         HOP_A_HEAD=$(cat <<HOPA
       "protocol": "shadowsocks",
       "settings": {
@@ -2074,8 +2142,8 @@ EOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
-        echo '        "network": "tcp"' > "$STREAM_SETTINGS_TEMP"
+    if [ "$SS_TLS" = true ]; then
+        write_ss_tls outbound "$STREAM_SETTINGS_TEMP"
     elif [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
         write_stream_settings outbound "$STREAM_SETTINGS_TEMP"
     elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then
@@ -2297,7 +2365,7 @@ EOF
     print_info "Service: xray-a.service"
     print_info "Logs location: /var/log/xray/"
     echo
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+    if [ "$USE_SHADOWSOCKS" = true ]; then
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks method:${NC} ${CYAN}2022-blake3-aes-256-gcm${NC}"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Shadowsocks key (same on Server B):${NC} ${CYAN}${SS_TUNNEL_PASSWORD}${NC}"
         echo
@@ -2308,11 +2376,7 @@ EOF
         print_warning "IMPORTANT: Save these details for Server B installation:"
         echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}UUID:${NC} ${CYAN}${UUID}${NC}"
     fi
-    if [ "$XHTTP_HTTP3" = true ]; then
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}XHTTP/3 (HTTP/3, UDP)${NC}"
-    else
-        echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}${TRANSPORT_PROTOCOL}${NC}"
-    fi
+    echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Transport Protocol:${NC} ${CYAN}$(transport_label)${NC}"
     if [ "$TRANSPORT_PROTOCOL" = "ws" ] && [ -n "$WS_DOMAIN" ]; then
         if [ "$TUNNEL_TOPOLOGY" = "middle" ]; then
             echo -e "${GRAY}${BOX_SIDE}${NC} ${WHITE}Domain (for Server M):${NC} ${CYAN}${WS_DOMAIN}${NC}"
@@ -2365,8 +2429,8 @@ write_stream_settings() {
         short_id_val=$(echo "$SERVER_B_SHORT_IDS" | sed 's/"//g' | xargs)
     fi
 
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
-        echo '        "network": "tcp"' > "$outfile"
+    if [ "$SS_TLS" = true ]; then
+        write_ss_tls "$role" "$outfile"
         return
     fi
 
@@ -2748,11 +2812,7 @@ install_server_m() {
     fi
 
     print_section "Configuration Summary"
-    if [ "$XHTTP_HTTP3" = true ]; then
-        print_config_item "Transport Protocol" "XHTTP/3"
-    else
-        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
-    fi
+    print_config_item "Transport Protocol" "$(transport_label)"
     print_config_item "Server B (downstream)" "$SERVER_B_DEST_IP:$TUNNEL_PORT_B"
     print_config_item "M listen port (A→M)" "$TUNNEL_PORT"
     print_config_item "UUID (A→M, for Server A)" "$UUID"
@@ -2794,7 +2854,7 @@ install_server_m() {
     M_SHORT_ID_IN="$SHORT_ID"
     M_SERVER_NAME_IN="$SERVER_NAME"
 
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+    if [ "$USE_SHADOWSOCKS" = true ]; then
         echo -e "${DIM}Key for the hop from this server to Server B. Leave empty to reuse the key generated above.${NC}"
         echo -e "${CYAN}${ARROW}${NC} Shadowsocks key from Server B: \c"
         read SS_PASS_DOWN
@@ -3366,11 +3426,7 @@ install_server_b() {
     # Show configuration summary
     print_section "Configuration Summary"
     print_config_item "UUID" "$UUID"
-    if [ "$XHTTP_HTTP3" = true ]; then
-        print_config_item "Transport Protocol" "XHTTP/3"
-    else
-        print_config_item "Transport Protocol" "$TRANSPORT_PROTOCOL"
-    fi
+    print_config_item "Transport Protocol" "$(transport_label)"
     if [ -n "$TRANSPORT_PATH" ]; then
         print_config_item "Transport Path" "$TRANSPORT_PATH"
     fi
@@ -3445,7 +3501,7 @@ install_server_b() {
     # Generate Server B configuration with port-preserving routing
     TEMP_CONFIG=$(mktemp)
 
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
+    if [ "$USE_SHADOWSOCKS" = true ]; then
         HOP_B_HEAD=$(cat <<HOPB
       "protocol": "shadowsocks",
       "settings": {
@@ -3538,8 +3594,8 @@ ENDEOF
     
     # Build streamSettings based on transport protocol
     STREAM_SETTINGS_TEMP=$(mktemp)
-    if [ "$TRANSPORT_PROTOCOL" = "shadowsocks" ]; then
-        echo '        "network": "tcp"' > "$STREAM_SETTINGS_TEMP"
+    if [ "$SS_TLS" = true ]; then
+        write_ss_tls inbound "$STREAM_SETTINGS_TEMP"
     elif [ "$XHTTP_HTTP3" = true ] || [ "$TRANSPORT_PROTOCOL" = "hysteria" ]; then
         write_stream_settings inbound "$STREAM_SETTINGS_TEMP"
     elif [ "$TRANSPORT_PROTOCOL" = "splithttp" ]; then

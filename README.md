@@ -63,7 +63,7 @@ During install on A and B, choose one protocol (must match on both sides):
 | 7 | KCP (mKCP) | UDP; defaults: MTU 1350, TTI 20 ms, uplink/downlink 500, congestion on, 32 MB buffers, tunnel port 2053 |
 | 8 | Hysteria 2 | QUIC + TLS + Salamander finalmask. Same auth password on every hop. Needs Xray 26.3.27+ |
 | 9 | XHTTP/3 | XHTTP over HTTP/3 (BBR). Needs a domain and Xray 26.3.27+ |
-| 10 | Shadowsocks 2022 | The A to B hop itself, over TCP (`2022-blake3-aes-256-gcm`). Same key on both servers. Client ports still forward to `127.0.0.1` on Server B. |
+| 10 | Shadowsocks 2022 | The A to B hop (`2022-blake3-aes-256-gcm`). Then choose TCP, TLS, XHTTP, WebSocket, gRPC, or KCP. Same key and same transport on both servers. |
 
 Reality keys, UUID, ports, and forward port lists are generated or prompted during setup.
 

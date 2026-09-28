@@ -60,7 +60,7 @@ sudo bash install xray a
 | 7 | KCP (mKCP) — پیش‌فرض: MTU 1350، TTI 20ms، uplink/downlink 500، congestion روشن، بافر 32MB، پورت تونل 2053 |
 | 8 | Hysteria 2 — QUIC + TLS + Salamander. همان رمز روی همه hopها. Xray 26.3.27+ |
 | 9 | XHTTP/3 — XHTTP روی HTTP/3. نیاز به دامنه و Xray 26.3.27+ |
-| 10 | Shadowsocks 2022 — خود تونل A به B روی TCP. همان کلید روی هر دو سرور |
+| 10 | Shadowsocks 2022 — تونل A به B. بعد TCP، TLS، XHTTP، WebSocket، gRPC یا KCP. همان کلید روی هر دو سرور |
 
 ## مسیرها و سرویس‌ها
 
